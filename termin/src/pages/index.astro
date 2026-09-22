@@ -1,36 +1,9 @@
 ---
 import "../styles/global.css";
 import ContestCard from "../components/ContestCard.astro";
-import { getAtCoderContests } from "../lib/contests/providers/atcoder";
-import { getCodeforcesContests } from "../lib/contests/providers/codeforces";
+import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
 
-const providers = [
-    {
-        name: "codeforces",
-        getContests: getCodeforcesContests,
-    },
-    {
-        name: "atcoder",
-        getContests: getAtCoderContests,
-    },
-];
-
-const results = await Promise.allSettled(
-    providers.map((provider) => provider.getContests()),
-);
-
-results.forEach((result, index) => {
-    if (result.status === "rejected") {
-        console.error(
-            `Failed to fetch ${providers[index].name} contests:`,
-            result.reason,
-        );
-    }
-});
-
-const contests = results
-    .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
-    .sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+const contests = await getUpcomingContests();
 ---
 
 <html lang="en">
