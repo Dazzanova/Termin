@@ -1,0 +1,52 @@
+---
+import "../styles/global.css";
+import ContestCard from "../components/ContestCard.astro";
+import { getAtCoderContests } from "../lib/contests/providers/atcoder";
+import { getCodeforcesContests } from "../lib/contests/providers/codeforces";
+
+const [codeforcesContests, atCoderContests] = await Promise.all([
+    getCodeforcesContests(),
+    getAtCoderContests(),
+]);
+
+const contests = [...codeforcesContests, ...atCoderContests].sort(
+    (a, b) => a.startTime.getTime() - b.startTime.getTime(),
+);
+---
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta
+            name="description"
+            content="Your friendly competitive programming contest reminder."
+        />
+        <title>Termin</title>
+    </head>
+
+    <body>
+        <main>
+            <header>
+                <div>
+                    <p class="eyebrow">COMPETITIVE PROGRAMMING</p>
+                    <h1>Termin</h1>
+                    <p class="subtitle">Your friendly contest reminder.</p>
+                </div>
+            </header>
+
+            <section>
+                <div class="section-heading">
+                    <h2>Upcoming contests</h2>
+                    <span>{contests.length}</span>
+                </div>
+
+                <div class="contest-list">
+                    {contests.map((contest) => (
+                        <ContestCard contest={contest} />
+                    ))}
+                </div>
+            </section>
+        </main>
+    </body>
+</html>

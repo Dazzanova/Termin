@@ -1,0 +1,42 @@
+---
+import type { Contest } from "../lib/contests/types";
+
+interface Props {
+    contest: Contest;
+}
+
+const { contest } = Astro.props;
+
+const start = contest.startTime.toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+});
+
+const hours = Math.floor(contest.durationSeconds / 3600);
+const minutes = Math.floor((contest.durationSeconds % 3600) / 60);
+
+const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+---
+
+<article class="contest-card">
+    <div class="contest-platform">{contest.platform}</div>
+
+    <h2>{contest.name}</h2>
+
+    <div class="contest-info">
+        <time datetime={contest.startTime.toISOString()}>{start}</time>
+
+        <span>·</span>
+
+        <span>duration: {duration}</span>
+    </div>
+
+    <a
+        class="contest-link"
+        href={contest.url}
+        target="_blank"
+        rel="noopener noreferrer"
+    >
+        Open contest ↗
+    </a>
+</article>
