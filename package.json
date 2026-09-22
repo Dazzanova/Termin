@@ -10,7 +10,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "test": "vitest run"
+    "test": "vitest run",
+    "sync": "tsx src/scripts/sync.ts"
   },
   "dependencies": {
     "astro": "^7.3.3",
@@ -21,6 +22,7 @@
     "better-sqlite3@13.0.3": true
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0"
+    "@types/better-sqlite3": "^9.6.0",
+    "tsx": "^4.23.15"
   }
 }

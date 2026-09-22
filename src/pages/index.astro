@@ -3,7 +3,7 @@ import "../styles/global.css";
 import ContestCard from "../components/ContestCard.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
 
-const contests = await getUpcomingContests();
+const contests = getUpcomingContests();
 ---
 
 <html lang="en">

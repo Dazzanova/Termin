@@ -51,6 +51,20 @@ const upsertContestStatement = db.prepare(`
     updated_at = excluded.updated_at
 `);
 
+const getUpcomingContestsStatement = db.prepare(`
+  SELECT
+    id,
+    platform,
+    name,
+    start_time,
+    duration_seconds,
+    url,
+    updated_at
+  FROM contests
+  WHERE start_time > ?
+  ORDER BY start_time ASC
+`);
+
 export function getStoredContests(): Contest[] {
   const rows = getContestsStatement.all() as ContestRow[];
 
@@ -82,4 +96,19 @@ export function saveContests(contests: Contest[]): void {
   });
 
   transaction(contests);
+}
+
+export function getUpcomingStoredContests(): Contest[] {
+  const rows = getUpcomingContestsStatement.all(
+    new Date().toISOString()
+  ) as ContestRow[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    platform: row.platform,
+    name: row.name,
+    startTime: new Date(row.start_time),
+    durationSeconds: row.duration_seconds,
+    url: row.url,
+  }));
 }
