@@ -5,6 +5,10 @@ import { getCodeChefContests } from "./providers/codechef";
 import { getLeetCodeContests } from "./providers/leetcode";
 import { validateContests } from "./validate";
 import { reconcileContests, type ContestChange } from "./reconcile";
+import {
+  getStoredContests,
+  saveContests,
+} from "./repository";
 
 type ContestProvider = {
   name: string;
@@ -31,6 +35,8 @@ const providers: ContestProvider[] = [
 ];
 
 export async function getUpcomingContests(): Promise<Contest[]> {
+  const previous = getStoredContests();
+
   const results = await Promise.allSettled(
     providers.map((provider) => provider.getContests())
   );
@@ -60,6 +66,14 @@ export async function getUpcomingContests(): Promise<Contest[]> {
 
     contests.push(...validContests);
   });
+
+  const changes = reconcileContests(previous, contests);
+
+  if (changes.length > 0) {
+    console.log("Contest changes detected:", changes);
+  }
+
+  saveContests(contests);
 
   return contests.sort(
     (a, b) => a.startTime.getTime() - b.startTime.getTime()
