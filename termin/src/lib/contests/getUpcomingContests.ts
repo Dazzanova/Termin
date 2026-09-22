@@ -1,6 +1,7 @@
 import type { Contest } from "./types";
 import { getAtCoderContests } from "./providers/atcoder";
 import { getCodeforcesContests } from "./providers/codeforces";
+import { getCodeChefContests } from "./providers/codechef";
 
 type ContestProvider = {
   name: string;
@@ -15,6 +16,10 @@ const providers: ContestProvider[] = [
   {
     name: "atcoder",
     getContests: getAtCoderContests,
+  },
+  {
+    name: "codechef",
+    getContests: getCodeChefContests,
   },
 ];
 
