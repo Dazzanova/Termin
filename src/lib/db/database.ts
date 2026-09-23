@@ -19,4 +19,9 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_contests_start_time
+  ON contests (start_time)
+`);
+
 export default db;

@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "vitest": "^5.0.1"
   }
 }
