@@ -47,3 +47,22 @@ export function validateContest(contest: Contest): boolean {
 export function validateContests(contests: Contest[]): Contest[] {
   return contests.filter(validateContest);
 }
+
+export function validateProviderContests(
+  contests: Contest[],
+  expectedPlatform: ContestPlatform
+): {
+  contests: Contest[];
+  invalidCount: number;
+} {
+  const validContests = contests.filter(
+    (contest) =>
+      contest.platform === expectedPlatform &&
+      validateContest(contest)
+  );
+
+  return {
+    contests: validContests,
+    invalidCount: contests.length - validContests.length,
+  };
+}

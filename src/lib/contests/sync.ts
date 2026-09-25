@@ -1,15 +1,20 @@
 import type { Contest, ContestPlatform } from "./types";
-import { validateContests } from "./validate";
+import { validateProviderContests } from "./validate";
 import { reconcileContests, type ContestChange } from "./reconcile";
 import {
   getUpcomingStoredContestsByPlatform,
-  saveContests,
-  removeStaleUpcomingContests,
+  syncProviderContests,
 } from "./repository";
 import { getAtCoderContests } from "./providers/atcoder";
 import { getCodeChefContests } from "./providers/codechef";
 import { getCodeforcesContests } from "./providers/codeforces";
 import { getLeetCodeContests } from "./providers/leetcode";
+import {
+  markProviderFailure,
+  markProviderSuccess,
+  markSyncCompleted,
+  markSyncStarted,
+} from "./sync-state";
 
 type ContestProvider = {
   platform: ContestPlatform;
@@ -42,13 +47,15 @@ export type SyncResult = {
 };
 
 export async function syncContests(): Promise<SyncResult> {
-  const results = await Promise.allSettled(
-    providers.map((provider) => provider.getContests())
-  );
+  markSyncStarted();
 
   const allContests: Contest[] = [];
   const allChanges: ContestChange[] = [];
   const failedProviders: string[] = [];
+
+  const results = await Promise.allSettled(
+    providers.map((provider) => provider.getContests())
+  );
 
   results.forEach((result, index) => {
     const provider = providers[index];
@@ -56,45 +63,58 @@ export async function syncContests(): Promise<SyncResult> {
     if (result.status === "rejected") {
       failedProviders.push(provider.platform);
 
+      markProviderFailure(provider.platform, result.reason);
+
       console.error(
         `Failed to fetch ${provider.platform} contests:`,
         result.reason
       );
 
-      // Do not touch this provider's stored contests — keep them as-is.
       return;
     }
 
-    const validContests = validateContests(result.value);
+    const validation = validateProviderContests(
+      result.value,
+      provider.platform
+    );
 
-    if (validContests.length !== result.value.length) {
+    if (validation.invalidCount > 0) {
       console.error(
-        `${provider.platform} returned ${
-          result.value.length - validContests.length
-        } invalid contests`
+        `${provider.platform} returned ${validation.invalidCount} invalid contest(s); preserving existing data`
       );
+
+      return;
     }
 
-    // Reconcile only against this provider's upcoming stored contests so that
-    // a failure in another provider has no effect on the diff.
-    const previous = getUpcomingStoredContestsByPlatform(provider.platform);
-    const changes = reconcileContests(previous, validContests);
+    const validContests = validation.contests;
 
-    // Persist the fresh data for this provider.
-    saveContests(validContests);
+    const previous = getUpcomingStoredContestsByPlatform(
+      provider.platform
+    );
 
-    // Remove upcoming contests for this platform that the provider no longer
-    // returns. This only runs because the fetch succeeded, so it is safe.
-    const currentIds = new Set(validContests.map((c) => c.id));
-    const removed = removeStaleUpcomingContests(provider.platform, currentIds);
+    const changes = reconcileContests(
+      previous,
+      validContests
+    );
+
+    const removed = syncProviderContests(
+      provider.platform,
+      validContests
+    );
+
+    markProviderSuccess(provider.platform);
 
     if (removed > 0) {
-      console.log(`Removed ${removed} stale ${provider.platform} contest(s).`);
+      console.log(
+        `Removed ${removed} stale ${provider.platform} contest(s).`
+      );
     }
 
     allContests.push(...validContests);
     allChanges.push(...changes);
   });
+
+  markSyncCompleted();
 
   return {
     contests: allContests,
