@@ -15,6 +15,7 @@ import {
   markSyncCompleted,
   markSyncStarted,
 } from "./sync-state";
+import { scheduleReminders } from "../reminders/schedule";
 
 type ContestProvider = {
   platform: ContestPlatform;
@@ -101,6 +102,10 @@ export async function syncContests(): Promise<SyncResult> {
       provider.platform,
       validContests
     );
+
+    for (const contest of validContests) {
+      scheduleReminders(contest);
+    }
 
     markProviderSuccess(provider.platform);
 

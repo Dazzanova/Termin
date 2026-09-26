@@ -2,6 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import Database from "better-sqlite3";
 import type { Contest } from "./types";
 import db from "../db/database";
+import { scheduleReminders } from "../reminders/schedule";
+
+vi.mock("../reminders/schedule", () => ({
+  scheduleReminders: vi.fn(),
+}));
 
 vi.mock("../db/database", async () => {
   const { default: Database } = await import("better-sqlite3");
@@ -83,6 +88,8 @@ const mockedCodeforces = vi.mocked(getCodeforcesContests);
 const mockedAtCoder = vi.mocked(getAtCoderContests);
 const mockedCodeChef = vi.mocked(getCodeChefContests);
 const mockedLeetCode = vi.mocked(getLeetCodeContests);
+const mockedScheduleReminders =
+  vi.mocked(scheduleReminders);
 
 beforeEach(() => {
   db.exec("DELETE FROM contests");
@@ -111,6 +118,19 @@ describe("syncContests", () => {
     expect(stored[0].id).toBe(contest.id);
     expect(result.contests).toHaveLength(1);
     expect(result.failedProviders).toHaveLength(0);
+  });
+
+  it("schedules reminders for contests returned by a successful provider", async () => {
+    const contest = makeContest();
+
+    mockedCodeforces.mockResolvedValue([contest]);
+
+    await syncContests();
+
+    expect(mockedScheduleReminders).toHaveBeenCalledTimes(1);
+    expect(mockedScheduleReminders).toHaveBeenCalledWith(
+      contest
+    );
   });
 
   it("updates an existing contest when its data changes", async () => {
@@ -220,6 +240,16 @@ describe("syncContests", () => {
     expect(result.failedProviders).toContain("codeforces");
   });
 
+  it("does not schedule reminders when a provider fails", async () => {
+    mockedCodeforces.mockRejectedValue(
+      new Error("Codeforces unavailable")
+    );
+
+    await syncContests();
+
+    expect(mockedScheduleReminders).not.toHaveBeenCalled();
+  });
+
   it("preserves existing contests when a provider returns invalid data", async () => {
     const existing = makeContest({
       id: "codeforces:100",
@@ -243,6 +273,18 @@ describe("syncContests", () => {
 
     expect(stored).toHaveLength(1);
     expect(stored[0].id).toBe("codeforces:100");
+  });
+
+  it("does not schedule reminders for invalid provider data", async () => {
+    const invalid = makeContest({
+      id: "",
+    });
+
+    mockedCodeforces.mockResolvedValue([invalid]);
+
+    await syncContests();
+
+    expect(mockedScheduleReminders).not.toHaveBeenCalled();
   });
 
   it("rejects a contest whose platform does not match its provider", async () => {
