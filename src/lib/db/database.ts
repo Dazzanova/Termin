@@ -24,4 +24,15 @@ db.exec(`
   ON contests (start_time)
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS reminders(
+  id TEXT PRIMARY KEY,
+  contest_id TEXT NOT NULL,
+  minutes_before INTEGER NOT NULL,
+  remind_at TEXT NOT NULL,
+  sent_at TEXT,
+    UNIQUE(contest_id, minutes_before)
+  )
+`);
+
 export default db;
