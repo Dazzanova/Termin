@@ -7,6 +7,16 @@ interface Props {
 
 const { contest } = Astro.props;
 
+const MONOGRAMS: Record<string, string> = {
+    Codeforces: "CF",
+    AtCoder: "AT",
+    CodeChef: "CC",
+    LeetCode: "LC",
+};
+
+const monogram =
+    MONOGRAMS[contest.platform] ?? contest.platform.slice(0, 2).toUpperCase();
+
 const start = contest.startTime.toLocaleString("en-IN", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -18,25 +28,97 @@ const minutes = Math.floor((contest.durationSeconds % 3600) / 60);
 const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 ---
 
-<article class="contest-card">
-    <div class="contest-platform">{contest.platform}</div>
+<article
+    class="contest-card"
+    data-start={contest.startTime.toISOString()}
+    data-urgency="far"
+>
+    <div class="contest-badge">{monogram}</div>
 
-    <h2>{contest.name}</h2>
+    <div class="contest-main">
+        <h2 class="contest-name">
+            <a href={contest.url} target="_blank" rel="noopener noreferrer">
+                {contest.name}
+            </a>
+        </h2>
 
-    <div class="contest-info">
-        <time datetime={contest.startTime.toISOString()}>{start}</time>
-
-        <span>·</span>
-
-        <span>duration: {duration}</span>
+        <div class="contest-meta">
+            {contest.platform} ·{" "}
+            <time datetime={contest.startTime.toISOString()}>{start}</time> ·{" "}
+            {duration}
+        </div>
     </div>
 
-    <a
-        class="contest-link"
-        href={contest.url}
-        target="_blank"
-        rel="noopener noreferrer"
-    >
-        Open contest ↗
-    </a>
+    <div class="contest-countdown" aria-live="polite"></div>
 </article>
+
+<script>
+    type Urgency = "far" | "soon" | "critical" | "live";
+
+    function formatCountdown(diffMs: number): { text: string; urgency: Urgency } {
+        const oneMin = 60_000;
+        const oneHour = 3_600_000;
+        const oneDay = 86_400_000;
+
+        if (diffMs <= 0) return { text: "STARTING NOW", urgency: "live" };
+
+        if (diffMs < oneHour) {
+            const urgency = diffMs < 5 * oneMin ? "critical" : "soon";
+            return { text: `${Math.floor(diffMs / oneMin)}m`, urgency };
+        }
+
+        if (diffMs < oneDay) {
+            const h = Math.floor(diffMs / oneHour);
+            const m = Math.floor((diffMs % oneHour) / oneMin);
+            const urgency = diffMs < 30 * oneMin ? "soon" : "far";
+            return {
+                text: `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`,
+                urgency,
+            };
+        }
+
+        const days = Math.floor(diffMs / oneDay);
+        return { text: days === 1 ? "tomorrow" : `${days}d`, urgency: "far" };
+    }
+
+    function renderChars(el: HTMLElement, text: string) {
+        const prev = el.dataset.prev ?? "";
+        el.textContent = "";
+
+        for (let i = 0; i < text.length; i++) {
+            const span = document.createElement("span");
+            span.className = "ct-char";
+            span.textContent = text[i];
+            if (text[i] !== prev[i]) span.classList.add("ct-flip");
+            el.appendChild(span);
+        }
+
+        el.dataset.prev = text;
+    }
+
+    function tick() {
+        document
+            .querySelectorAll<HTMLElement>(".contest-card[data-start]")
+            .forEach((card) => {
+                const start = new Date(card.dataset.start!).getTime();
+                const diff = start - Date.now();
+                const { text, urgency } = formatCountdown(diff);
+
+                const el = card.querySelector<HTMLElement>(".contest-countdown");
+                if (el && el.dataset.prev !== text) renderChars(el, text);
+
+                if (card.dataset.urgency !== urgency) {
+                    card.dataset.urgency = urgency;
+
+                    if (urgency === "live") {
+                        card.classList.remove("pulse-once");
+                        void card.offsetWidth;
+                        card.classList.add("pulse-once");
+                    }
+                }
+            });
+    }
+
+    tick();
+    setInterval(tick, 1000);
+</script>
