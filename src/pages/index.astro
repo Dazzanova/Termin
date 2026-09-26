@@ -2,8 +2,49 @@
 import "../styles/global.css";
 import ContestCard from "../components/ContestCard.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
+import type { Contest } from "../lib/contests/types";
 
 const contests = getUpcomingContests();
+
+function dayLabel(date: Date, now: Date): string {
+    const startOfToday = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate(),
+    );
+    const startOfDay = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+    );
+    const diffDays = Math.round(
+        (startOfDay.getTime() - startOfToday.getTime()) / 86_400_000,
+    );
+
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+
+    return date.toLocaleDateString("en-IN", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+    });
+}
+
+const now = new Date();
+
+const groups: { label: string; contests: Contest[] }[] = [];
+
+for (const contest of contests) {
+    const label = dayLabel(contest.startTime, now);
+    const existing = groups.find((group) => group.label === label);
+
+    if (existing) {
+        existing.contests.push(contest);
+    } else {
+        groups.push({ label, contests: [contest] });
+    }
+}
 ---
 
 <html lang="en">
@@ -19,25 +60,40 @@ const contests = getUpcomingContests();
 
     <body>
         <main>
-            <header>
+            <header class="site-header">
                 <div>
                     <p class="eyebrow">COMPETITIVE PROGRAMMING</p>
                     <h1>Termin</h1>
                     <p class="subtitle">Your friendly contest reminder.</p>
+                </div>
+
+                <div class="header-info">
+                    <div class="sync-status">
+                        <span class="sync-dot"></span>
+                        <span>synced recently</span>
+                    </div>
+
+                    <div class="header-count">{contests.length} upcoming</div>
                 </div>
             </header>
 
             <section>
                 <div class="section-heading">
                     <h2>Upcoming contests</h2>
-                    <span>{contests.length}</span>
+                    <span>{contests.length} contests</span>
                 </div>
 
-                <div class="contest-list">
-                    {contests.map((contest) => (
-                        <ContestCard contest={contest} />
-                    ))}
-                </div>
+                {groups.map((group) => (
+                    <div class="day-group">
+                        <p class="day-label">{group.label}</p>
+
+                        <div class="contest-list">
+                            {group.contests.map((contest) => (
+                                <ContestCard contest={contest} />
+                            ))}
+                        </div>
+                    </div>
+                ))}
             </section>
         </main>
     </body>

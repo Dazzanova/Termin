@@ -8,14 +8,28 @@ interface Props {
 const { contest } = Astro.props;
 
 const MONOGRAMS: Record<string, string> = {
-    Codeforces: "CF",
-    AtCoder: "AT",
-    CodeChef: "CC",
-    LeetCode: "LC",
+    codeforces: "CF",
+    atcoder: "AT",
+    codechef: "CC",
+    leetcode: "LC",
 };
 
+const PLATFORM_COLORS: Record<string, string> = {
+    codeforces: "#2f8fea",
+    atcoder: "#8b5cf6",
+    codechef: "#a15f2a",
+    leetcode: "#f59f1a",
+};
+
+const FALLBACK_COLOR = "#4a4a52";
+
+const platformKey = contest.platform.toLowerCase();
+
 const monogram =
-    MONOGRAMS[contest.platform] ?? contest.platform.slice(0, 2).toUpperCase();
+    MONOGRAMS[platformKey] ?? contest.platform.slice(0, 2).toUpperCase();
+
+const badgeColor = PLATFORM_COLORS[platformKey] ?? FALLBACK_COLOR;
+const badgeStyleAttr = `background:${badgeColor}22;border:1px solid ${badgeColor}66;color:${badgeColor};`;
 
 const start = contest.startTime.toLocaleString("en-IN", {
     dateStyle: "medium",
@@ -33,12 +47,17 @@ const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
     data-start={contest.startTime.toISOString()}
     data-urgency="far"
 >
-    <div class="contest-badge">{monogram}</div>
+    <div class="contest-badge" style={badgeStyleAttr}>
+        {monogram}
+    </div>
 
     <div class="contest-main">
         <h2 class="contest-name">
             <a href={contest.url} target="_blank" rel="noopener noreferrer">
                 {contest.name}
+                <span class="external-link" aria-hidden="true">
+                    ↗
+                </span>
             </a>
         </h2>
 
@@ -55,7 +74,20 @@ const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 <script>
     type Urgency = "far" | "soon" | "critical" | "live";
 
-    function formatCountdown(diffMs: number): { text: string; urgency: Urgency } {
+    function pad(n: number) {
+        return String(n).padStart(2, "0");
+    }
+
+    // For <24h remaining: exact hh/mm precision.
+    // For >=24h remaining: bucket by calendar day (matches the Today/Tomorrow/date
+    // group headers in index.astro), not a raw 24h-ms floor — otherwise a contest
+    // grouped under "Mon, 28 Sept" could show "tomorrow" depending on what hour
+    // you happen to load the page.
+    function formatCountdown(
+        start: Date,
+        now: Date,
+    ): { text: string; urgency: Urgency } {
+        const diffMs = start.getTime() - now.getTime();
         const oneMin = 60_000;
         const oneHour = 3_600_000;
         const oneDay = 86_400_000;
@@ -71,14 +103,27 @@ const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
             const h = Math.floor(diffMs / oneHour);
             const m = Math.floor((diffMs % oneHour) / oneMin);
             const urgency = diffMs < 30 * oneMin ? "soon" : "far";
-            return {
-                text: `${String(h).padStart(2, "0")}h ${String(m).padStart(2, "0")}m`,
-                urgency,
-            };
+            return { text: `${pad(h)}h ${pad(m)}m`, urgency };
         }
 
-        const days = Math.floor(diffMs / oneDay);
-        return { text: days === 1 ? "tomorrow" : `${days}d`, urgency: "far" };
+        const startOfToday = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+        );
+        const startOfTarget = new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate(),
+        );
+        const diffDays = Math.round(
+            (startOfTarget.getTime() - startOfToday.getTime()) / oneDay,
+        );
+
+        return {
+            text: diffDays === 1 ? "tomorrow" : `${diffDays}d`,
+            urgency: "far",
+        };
     }
 
     function renderChars(el: HTMLElement, text: string) {
@@ -97,14 +142,16 @@ const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
     }
 
     function tick() {
+        const now = new Date();
+
         document
             .querySelectorAll<HTMLElement>(".contest-card[data-start]")
             .forEach((card) => {
-                const start = new Date(card.dataset.start!).getTime();
-                const diff = start - Date.now();
-                const { text, urgency } = formatCountdown(diff);
+                const start = new Date(card.dataset.start!);
+                const { text, urgency } = formatCountdown(start, now);
 
-                const el = card.querySelector<HTMLElement>(".contest-countdown");
+                const el =
+                    card.querySelector<HTMLElement>(".contest-countdown");
                 if (el && el.dataset.prev !== text) renderChars(el, text);
 
                 if (card.dataset.urgency !== urgency) {
