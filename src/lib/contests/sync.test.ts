@@ -67,6 +67,12 @@ import { getCodeforcesContests } from "./providers/codeforces";
 import { getAtCoderContests } from "./providers/atcoder";
 import { getCodeChefContests } from "./providers/codechef";
 import { getLeetCodeContests } from "./providers/leetcode";
+import {
+  markProviderFailure,
+  markProviderSuccess,
+  markSyncCompleted,
+  markSyncStarted,
+} from "./sync-state";
 
 const FUTURE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -376,5 +382,70 @@ describe("syncContests", () => {
 
     expect(stored).toHaveLength(1);
     expect(stored[0].id).toBe("codeforces:100");
+  });
+
+  it("marks sync as ok when all providers succeed", async () => {
+    const { markSyncCompleted } = await import(
+      "./sync-state"
+    );
+
+    const codeforcesContest = makeContest({
+      id: "codeforces:100",
+    });
+
+    const atcoderContest = makeContest({
+      id: "atcoder:abc123",
+      platform: "atcoder",
+      url: "https://atcoder.jp/contests/abc123",
+    });
+
+    mockedCodeforces.mockResolvedValue([codeforcesContest]);
+    mockedAtCoder.mockResolvedValue([atcoderContest]);
+    mockedCodeChef.mockResolvedValue([]);
+    mockedLeetCode.mockResolvedValue([]);
+
+    await syncContests();
+
+    expect(vi.mocked(markSyncCompleted)).toHaveBeenCalledWith(true);
+  });
+
+  it("marks sync as error when one provider fails", async () => {
+    const { markSyncCompleted } = await import(
+      "./sync-state"
+    );
+
+    const codeforcesContest = makeContest({
+      id: "codeforces:100",
+    });
+
+    mockedCodeforces.mockResolvedValue([codeforcesContest]);
+    mockedAtCoder.mockRejectedValue(
+      new Error("AtCoder unavailable")
+    );
+    mockedCodeChef.mockResolvedValue([]);
+    mockedLeetCode.mockResolvedValue([]);
+
+    await syncContests();
+
+    expect(vi.mocked(markSyncCompleted)).toHaveBeenCalledWith(false);
+  });
+
+  it("marks sync as error when multiple providers fail", async () => {
+    const { markSyncCompleted } = await import(
+      "./sync-state"
+    );
+
+    mockedCodeforces.mockRejectedValue(
+      new Error("Codeforces unavailable")
+    );
+    mockedAtCoder.mockRejectedValue(
+      new Error("AtCoder unavailable")
+    );
+    mockedCodeChef.mockResolvedValue([]);
+    mockedLeetCode.mockResolvedValue([]);
+
+    await syncContests();
+
+    expect(vi.mocked(markSyncCompleted)).toHaveBeenCalledWith(false);
   });
 });

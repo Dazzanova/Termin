@@ -119,7 +119,7 @@ export async function syncContests(): Promise<SyncResult> {
     allChanges.push(...changes);
   });
 
-  markSyncCompleted();
+  markSyncCompleted(failedProviders.length === 0);
 
   return {
     contests: allContests,

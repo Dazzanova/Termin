@@ -22,9 +22,9 @@ export function markSyncStarted(): void {
   upsert.run("sync_status", "syncing");
 }
 
-export function markSyncCompleted(): void {
+export function markSyncCompleted(success: boolean = true): void {
   upsert.run("sync_completed_at", new Date().toISOString());
-  upsert.run("sync_status", "ok");
+  upsert.run("sync_status", success ? "ok" : "error");
 }
 
 export function markProviderSuccess(platform: string): void {

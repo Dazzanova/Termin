@@ -32,16 +32,18 @@ function formatTimeAgo(date: Date | null): string {
 const timeAgo = formatTimeAgo(syncState.completedAt);
 const isError = syncState.status === "error";
 const isSyncing = syncState.status === "syncing";
+const neverSynced = syncState.completedAt === null && !isSyncing;
 ---
 
-<div class="sync-status" class:list={[{ syncing: isSyncing, error: isError }]}>
+<div class="sync-status" class:list={[{ syncing: isSyncing, error: isError, neverSynced }]}>
   {isSyncing && <span class="sync-dot"></span>}
-  {!isSyncing && !isError && <span class="sync-dot"></span>}
-  {isError && <span class="sync-dot error"></span>}
+  {!isSyncing && !isError && !neverSynced && <span class="sync-dot"></span>}
+  {(isError || neverSynced) && <span class="sync-dot warning"></span>}
 
   <span class="sync-label">
     {isSyncing && "Syncing..."}
-    {!isSyncing && !isError && `Synced ${timeAgo}`}
+    {!isSyncing && !isError && !neverSynced && `Synced ${timeAgo}`}
+    {neverSynced && "Not synced"}
     {isError && "Sync failed"}
   </span>
 </div>
@@ -66,7 +68,8 @@ const isSyncing = syncState.status === "syncing";
     transition: background 200ms ease;
   }
 
-  .sync-dot.error {
+  .sync-dot.error,
+  .sync-dot.warning {
     background: var(--danger);
   }
 
