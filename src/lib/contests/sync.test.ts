@@ -448,4 +448,53 @@ describe("syncContests", () => {
 
     expect(vi.mocked(markSyncCompleted)).toHaveBeenCalledWith(false);
   });
+
+  it("treats invalid provider data as sync failure and preserves existing data", async () => {
+    const { markSyncCompleted } = await import(
+      "./sync-state"
+    );
+
+    const existing = makeContest({
+      id: "codeforces:100",
+      name: "Existing Contest",
+    });
+
+    const valid = makeContest({
+      id: "atcoder:abc123",
+      platform: "atcoder",
+      url: "https://atcoder.jp/contests/abc123",
+    });
+
+    const invalid = makeContest({
+      id: "",
+      name: "Broken Contest",
+    });
+
+    saveContests([existing]);
+
+    mockedCodeforces.mockResolvedValue([invalid]);
+    mockedAtCoder.mockResolvedValue([valid]);
+    mockedCodeChef.mockResolvedValue([]);
+    mockedLeetCode.mockResolvedValue([]);
+
+    const result = await syncContests();
+
+    const codeforcesStored =
+      getUpcomingStoredContestsByPlatform("codeforces");
+
+    const atcoderStored =
+      getUpcomingStoredContestsByPlatform("atcoder");
+
+    expect(result.failedProviders).toContain("codeforces");
+    expect(result.contests).toHaveLength(1);
+    expect(result.contests[0].id).toBe("atcoder:abc123");
+
+    expect(codeforcesStored).toHaveLength(1);
+    expect(codeforcesStored[0].id).toBe("codeforces:100");
+
+    expect(atcoderStored).toHaveLength(1);
+    expect(atcoderStored[0].id).toBe("atcoder:abc123");
+
+    expect(vi.mocked(markSyncCompleted)).toHaveBeenCalledWith(false);
+  });
 });

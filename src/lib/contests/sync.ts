@@ -80,6 +80,13 @@ export async function syncContests(): Promise<SyncResult> {
     );
 
     if (validation.invalidCount > 0) {
+      failedProviders.push(provider.platform);
+
+      markProviderFailure(
+        provider.platform,
+        new Error(`${validation.invalidCount} invalid contest(s)`)
+      );
+
       console.error(
         `${provider.platform} returned ${validation.invalidCount} invalid contest(s); preserving existing data`
       );
