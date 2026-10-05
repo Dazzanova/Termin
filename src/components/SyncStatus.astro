@@ -1,0 +1,96 @@
+---
+import { getSyncState } from "../lib/contests/sync-state";
+import type { SyncState } from "../lib/contests/sync-state";
+
+interface Props {
+  syncState?: SyncState;
+}
+
+const syncState = Astro.props.syncState ?? getSyncState();
+
+function formatTimeAgo(date: Date | null): string {
+  if (!date) return "never";
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffDay < 7) return `${diffDay}d ago`;
+
+  return date.toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+const timeAgo = formatTimeAgo(syncState.completedAt);
+const isError = syncState.status === "error";
+const isSyncing = syncState.status === "syncing";
+---
+
+<div class="sync-status" class:list={[{ syncing: isSyncing, error: isError }]}>
+  {isSyncing && <span class="sync-dot"></span>}
+  {!isSyncing && !isError && <span class="sync-dot"></span>}
+  {isError && <span class="sync-dot error"></span>}
+
+  <span class="sync-label">
+    {isSyncing && "Syncing..."}
+    {!isSyncing && !isError && `Synced ${timeAgo}`}
+    {isError && "Sync failed"}
+  </span>
+</div>
+
+<style>
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--brand);
+    flex-shrink: 0;
+    transition: background 200ms ease;
+  }
+
+  .sync-dot.error {
+    background: var(--danger);
+  }
+
+  .sync-status.syncing .sync-dot {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sync-status.syncing .sync-dot {
+      animation: none;
+    }
+  }
+
+  .sync-label {
+    color: var(--text-muted);
+  }
+</style>

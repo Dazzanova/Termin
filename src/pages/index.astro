@@ -1,10 +1,15 @@
 ---
 import "../styles/global.css";
 import ContestCard from "../components/ContestCard.astro";
+import ContestHero from "../components/ContestHero.astro";
+import SyncStatus from "../components/SyncStatus.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
+import { getSyncState } from "../lib/contests/sync-state";
 import type { Contest } from "../lib/contests/types";
 
 const contests = getUpcomingContests();
+const syncState = getSyncState();
+const nextContest = contests.length > 0 ? contests[0] : null;
 
 function dayLabel(date: Date, now: Date): string {
     const startOfToday = new Date(
@@ -68,11 +73,7 @@ for (const contest of contests) {
                 </div>
 
                 <div class="header-info">
-                    <div class="sync-status">
-                        <span class="sync-dot"></span>
-                        <span>synced recently</span>
-                    </div>
-
+                    <SyncStatus syncState={syncState} />
                     <div class="header-count">{contests.length} upcoming</div>
                     <a href="/settings" class="settings-link">
                         Settings
@@ -80,10 +81,14 @@ for (const contest of contests) {
                 </div>
             </header>
 
+            {nextContest && (
+                <ContestHero contest={nextContest} />
+            )}
+
             <section>
                 <div class="section-heading">
                     <h2>Upcoming contests</h2>
-                    <span>{contests.length} contests</span>
+                    <span>{contests.length} total</span>
                 </div>
 
                 {groups.map((group) => (
@@ -104,8 +109,9 @@ for (const contest of contests) {
 
 <style>
     .settings-link {
-        color: var(--text-dim);
-        font-size: 0.72rem;
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        font-weight: 500;
         text-decoration: none;
         transition: color 150ms ease;
     }
@@ -113,6 +119,6 @@ for (const contest of contests) {
     .settings-link:hover {
         color: var(--text);
         text-decoration: underline;
-        text-underline-offset: 3px;
+        text-underline-offset: 4px;
     }
 </style>

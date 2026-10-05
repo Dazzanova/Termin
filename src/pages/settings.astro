@@ -179,41 +179,29 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
 
 <style>
     .nav-back {
-        color: var(--text-dim);
+        color: var(--text-muted);
         text-decoration: none;
         transition: color 150ms ease;
+        font-weight: 500;
     }
 
     .nav-back:hover {
         color: var(--text);
     }
 
-    .settings-link {
-        color: var(--text-muted);
-        font-size: 0.72rem;
-        text-decoration: none;
-        transition: color 150ms ease;
-    }
-
-    .settings-link:hover {
-        color: var(--text);
-        text-decoration: underline;
-        text-underline-offset: 3px;
-    }
-
     .platform-list {
         display: grid;
-        gap: 10px;
+        gap: 12px;
     }
 
     .platform-card {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 14px;
-        padding: 14px 18px;
+        gap: 16px;
+        padding: 16px 18px;
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: var(--radius-md);
         background: var(--surface);
         cursor: pointer;
         user-select: none;
@@ -230,21 +218,34 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
     .platform-main {
         display: flex;
         align-items: center;
-        gap: 14px;
+        gap: 16px;
     }
 
     .platform-checkbox {
-        width: 17px;
-        height: 17px;
+        width: 18px;
+        height: 18px;
         margin: 0;
         cursor: pointer;
-        accent-color: var(--accent);
+        accent-color: var(--brand);
+    }
+
+    .contest-badge {
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: var(--radius-md);
+        font-size: 0.7rem;
+        font-weight: 800;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     }
 
     .platform-info {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 3px;
     }
 
     .platform-title {
@@ -256,8 +257,7 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
     .platform-slug {
         font-size: 0.75rem;
         color: var(--text-dim);
-        font-family:
-            ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-family: "JetBrains Mono", "Courier New", monospace;
     }
 
     .platform-badge {
@@ -265,11 +265,11 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        padding: 3px 8px;
-        border-radius: 5px;
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
         border: 1px solid var(--border);
         color: var(--text-dim);
-        background: rgba(255, 255, 255, 0.02);
+        background: transparent;
         transition:
             color 150ms ease,
             border-color 150ms ease,
@@ -277,35 +277,35 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
     }
 
     .platform-badge[data-state="enabled"] {
-        color: var(--accent);
-        border-color: rgba(52, 211, 153, 0.3);
-        background: var(--accent-soft);
+        color: var(--brand);
+        border-color: rgba(99, 214, 255, 0.4);
+        background: rgba(99, 214, 255, 0.08);
     }
 
     .platform-badge[data-state="disabled"] {
         color: var(--text-dim);
         border-color: var(--border);
-        background: rgba(255, 255, 255, 0.02);
+        background: transparent;
     }
 
     .form-actions {
         display: flex;
         align-items: center;
         gap: 16px;
-        margin-top: 24px;
-        padding-top: 20px;
+        margin-top: 28px;
+        padding-top: 24px;
         border-top: 1px solid var(--border);
     }
 
     .save-btn {
-        background: var(--accent);
-        color: #0b0b0f;
+        background: var(--brand);
+        color: var(--bg);
         font-family: inherit;
-        font-size: 0.82rem;
+        font-size: 0.85rem;
         font-weight: 600;
-        padding: 8px 18px;
+        padding: 10px 20px;
         border: none;
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         cursor: pointer;
         transition:
             opacity 150ms ease,
@@ -321,8 +321,9 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
     }
 
     .cancel-btn {
-        color: var(--text-dim);
+        color: var(--text-muted);
         font-size: 0.8rem;
+        font-weight: 500;
         text-decoration: none;
         transition: color 150ms ease;
     }
@@ -330,13 +331,13 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
     .cancel-btn:hover {
         color: var(--text);
         text-decoration: underline;
-        text-underline-offset: 3px;
+        text-underline-offset: 4px;
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
         .platform-card {
-            padding: 12px 14px;
-            gap: 10px;
+            padding: 14px 16px;
+            gap: 12px;
         }
 
         .platform-title {
@@ -345,6 +346,11 @@ const PLATFORM_COLORS: Record<ContestPlatform, string> = {
 
         .platform-slug {
             font-size: 0.7rem;
+        }
+
+        .contest-badge {
+            width: 36px;
+            height: 36px;
         }
     }
 </style>
