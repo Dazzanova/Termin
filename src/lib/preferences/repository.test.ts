@@ -44,6 +44,7 @@ import {
 import {
   getPreferences,
   savePreferences,
+  saveSubmittedPlatforms,
 } from "./repository";
 import {
   getUpcomingStoredContests,
@@ -175,6 +176,55 @@ describe("preferences repository", () => {
 
     const preferences = getPreferences();
     expect(preferences.enabledPlatforms).toEqual(["codeforces"]);
+  });
+});
+
+describe("save submitted platforms from form / untrusted input", () => {
+  it("persists valid platform selection submitted from form", () => {
+    const result = saveSubmittedPlatforms(["codeforces", "atcoder"]);
+    expect(result.enabledPlatforms).toEqual(["codeforces", "atcoder"]);
+
+    const loaded = getPreferences();
+    expect(loaded.enabledPlatforms).toEqual(["codeforces", "atcoder"]);
+  });
+
+  it("persists empty platform selection when no platforms are selected", () => {
+    saveSubmittedPlatforms([]);
+    const loaded = getPreferences();
+    expect(loaded.enabledPlatforms).toEqual([]);
+  });
+
+  it("filters out unsupported platforms from untrusted submission", () => {
+    const result = saveSubmittedPlatforms([
+      "codeforces",
+      "hacker_earth",
+      "topcoder",
+      "<script>alert(1)</script>",
+    ]);
+    expect(result.enabledPlatforms).toEqual(["codeforces"]);
+
+    const loaded = getPreferences();
+    expect(loaded.enabledPlatforms).toEqual(["codeforces"]);
+  });
+
+  it("deduplicates platforms from submission", () => {
+    const result = saveSubmittedPlatforms([
+      "leetcode",
+      "leetcode",
+      "codechef",
+    ]);
+    expect(result.enabledPlatforms).toEqual(["leetcode", "codechef"]);
+  });
+
+  it("handles non-array or malformed submitted input safely", () => {
+    saveSubmittedPlatforms(null);
+    expect(getPreferences().enabledPlatforms).toEqual([]);
+
+    saveSubmittedPlatforms("codeforces");
+    expect(getPreferences().enabledPlatforms).toEqual(["codeforces"]);
+
+    saveSubmittedPlatforms(12345);
+    expect(getPreferences().enabledPlatforms).toEqual([]);
   });
 });
 

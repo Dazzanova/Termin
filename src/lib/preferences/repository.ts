@@ -28,7 +28,7 @@ const savePreferencesStatement = db.prepare(`
 
 const supportedPlatformsSet = new Set<string>(SUPPORTED_PLATFORMS);
 
-function sanitizePlatforms(platforms: unknown): ContestPlatform[] | null {
+export function sanitizePlatforms(platforms: unknown): ContestPlatform[] | null {
   if (!Array.isArray(platforms)) {
     return null;
   }
@@ -85,4 +85,17 @@ export function savePreferences(preferences: UserPreferences): void {
   ];
 
   savePreferencesStatement.run(JSON.stringify(sanitized));
+}
+
+export function saveSubmittedPlatforms(rawPlatforms: unknown): UserPreferences {
+  const list = Array.isArray(rawPlatforms)
+    ? rawPlatforms
+    : typeof rawPlatforms === "string"
+      ? [rawPlatforms]
+      : [];
+
+  const sanitized = sanitizePlatforms(list) ?? [];
+  const preferences: UserPreferences = { enabledPlatforms: sanitized };
+  savePreferences(preferences);
+  return preferences;
 }

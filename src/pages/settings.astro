@@ -1,0 +1,350 @@
+---
+import "../styles/global.css";
+import { getPreferences } from "../lib/preferences/repository";
+import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
+import type { ContestPlatform } from "../lib/contests/types";
+
+const preferences = getPreferences();
+const enabledSet = new Set<string>(preferences.enabledPlatforms);
+
+const PLATFORM_NAMES: Record<ContestPlatform, string> = {
+    codeforces: "Codeforces",
+    atcoder: "AtCoder",
+    codechef: "CodeChef",
+    leetcode: "LeetCode",
+};
+
+const PLATFORM_MONOGRAMS: Record<ContestPlatform, string> = {
+    codeforces: "CF",
+    atcoder: "AT",
+    codechef: "CC",
+    leetcode: "LC",
+};
+
+const PLATFORM_COLORS: Record<ContestPlatform, string> = {
+    codeforces: "#2f8fea",
+    atcoder: "#8b5cf6",
+    codechef: "#a15f2a",
+    leetcode: "#f59f1a",
+};
+---
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <meta
+            name="description"
+            content="Customize visible contest platforms in Termin."
+        />
+        <title>Platform Settings · Termin</title>
+    </head>
+
+    <body>
+        <main>
+            <header class="site-header">
+                <div>
+                    <p class="eyebrow">
+                        <a href="/" class="nav-back">
+                            ← Back to contests
+                        </a>
+                    </p>
+                    <h1>Settings</h1>
+                    <p class="subtitle">
+                        Choose which contest platforms are visible.
+                    </p>
+                </div>
+
+                <div class="header-info">
+                    <a href="/" class="settings-link">
+                        Back to contests
+                    </a>
+                </div>
+            </header>
+
+            <section>
+                <div class="section-heading">
+                    <h2>Platforms</h2>
+                    <span class="selection-count" id="selection-count">
+                        {preferences.enabledPlatforms.length} of{" "}
+                        {SUPPORTED_PLATFORMS.length} enabled
+                    </span>
+                </div>
+
+                <form method="POST" action="/settings" class="settings-form">
+                    <div class="platform-list">
+                        {SUPPORTED_PLATFORMS.map((platform) => {
+                            const isEnabled = enabledSet.has(platform);
+                            const name = PLATFORM_NAMES[platform];
+                            const monogram = PLATFORM_MONOGRAMS[platform];
+                            const color = PLATFORM_COLORS[platform];
+                            const badgeStyle = `background:${color}22;border:1px solid ${color}66;color:${color};`;
+
+                            return (
+                                <label
+                                    class="platform-card"
+                                    for={`platform-${platform}`}
+                                >
+                                    <div class="platform-main">
+                                        <input
+                                            type="checkbox"
+                                            name="platforms"
+                                            id={`platform-${platform}`}
+                                            value={platform}
+                                            checked={isEnabled}
+                                            class="platform-checkbox"
+                                        />
+
+                                        <div
+                                            class="contest-badge"
+                                            style={badgeStyle}
+                                        >
+                                            {monogram}
+                                        </div>
+
+                                        <div class="platform-info">
+                                            <span class="platform-title">
+                                                {name}
+                                            </span>
+                                            <span class="platform-slug">
+                                                {platform}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <span
+                                        class="platform-badge"
+                                        data-state={
+                                            isEnabled ? "enabled" : "disabled"
+                                        }
+                                    >
+                                        {isEnabled ? "Enabled" : "Disabled"}
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="save-btn">
+                            Save preferences
+                        </button>
+                        <a href="/" class="cancel-btn">
+                            Cancel
+                        </a>
+                    </div>
+                </form>
+            </section>
+        </main>
+
+        <script>
+            function initPlatformToggles() {
+                const checkboxes =
+                    document.querySelectorAll<HTMLInputElement>(
+                        ".platform-checkbox",
+                    );
+                const countEl = document.getElementById("selection-count");
+
+                function updateState() {
+                    let enabledCount = 0;
+
+                    checkboxes.forEach((cb) => {
+                        const card = cb.closest(".platform-card");
+                        const badge = card?.querySelector(".platform-badge");
+
+                        if (cb.checked) {
+                            enabledCount++;
+                            badge?.setAttribute("data-state", "enabled");
+                            if (badge) badge.textContent = "Enabled";
+                        } else {
+                            badge?.setAttribute("data-state", "disabled");
+                            if (badge) badge.textContent = "Disabled";
+                        }
+                    });
+
+                    if (countEl) {
+                        countEl.textContent = `${enabledCount} of ${checkboxes.length} enabled`;
+                    }
+                }
+
+                checkboxes.forEach((cb) => {
+                    cb.addEventListener("change", updateState);
+                });
+            }
+
+            initPlatformToggles();
+        </script>
+    </body>
+</html>
+
+<style>
+    .nav-back {
+        color: var(--text-dim);
+        text-decoration: none;
+        transition: color 150ms ease;
+    }
+
+    .nav-back:hover {
+        color: var(--text);
+    }
+
+    .settings-link {
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        text-decoration: none;
+        transition: color 150ms ease;
+    }
+
+    .settings-link:hover {
+        color: var(--text);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    .platform-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .platform-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 14px 18px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        cursor: pointer;
+        user-select: none;
+        transition:
+            border-color 150ms ease,
+            background 150ms ease;
+    }
+
+    .platform-card:hover {
+        background: var(--surface-hover);
+        border-color: var(--border-strong);
+    }
+
+    .platform-main {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .platform-checkbox {
+        width: 17px;
+        height: 17px;
+        margin: 0;
+        cursor: pointer;
+        accent-color: var(--accent);
+    }
+
+    .platform-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .platform-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text);
+    }
+
+    .platform-slug {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        font-family:
+            ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .platform-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 5px;
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        background: rgba(255, 255, 255, 0.02);
+        transition:
+            color 150ms ease,
+            border-color 150ms ease,
+            background 150ms ease;
+    }
+
+    .platform-badge[data-state="enabled"] {
+        color: var(--accent);
+        border-color: rgba(52, 211, 153, 0.3);
+        background: var(--accent-soft);
+    }
+
+    .platform-badge[data-state="disabled"] {
+        color: var(--text-dim);
+        border-color: var(--border);
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .form-actions {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border);
+    }
+
+    .save-btn {
+        background: var(--accent);
+        color: #0b0b0f;
+        font-family: inherit;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 8px 18px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition:
+            opacity 150ms ease,
+            transform 100ms ease;
+    }
+
+    .save-btn:hover {
+        opacity: 0.9;
+    }
+
+    .save-btn:active {
+        transform: translateY(1px);
+    }
+
+    .cancel-btn {
+        color: var(--text-dim);
+        font-size: 0.8rem;
+        text-decoration: none;
+        transition: color 150ms ease;
+    }
+
+    .cancel-btn:hover {
+        color: var(--text);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+
+    @media (max-width: 600px) {
+        .platform-card {
+            padding: 12px 14px;
+            gap: 10px;
+        }
+
+        .platform-title {
+            font-size: 0.9rem;
+        }
+
+        .platform-slug {
+            font-size: 0.7rem;
+        }
+    }
+</style>

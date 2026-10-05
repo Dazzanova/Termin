@@ -74,6 +74,9 @@ for (const contest of contests) {
                     </div>
 
                     <div class="header-count">{contests.length} upcoming</div>
+                    <a href="/settings" class="settings-link">
+                        Settings
+                    </a>
                 </div>
             </header>
 
@@ -98,3 +101,18 @@ for (const contest of contests) {
         </main>
     </body>
 </html>
+
+<style>
+    .settings-link {
+        color: var(--text-dim);
+        font-size: 0.72rem;
+        text-decoration: none;
+        transition: color 150ms ease;
+    }
+
+    .settings-link:hover {
+        color: var(--text);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+    }
+</style>
