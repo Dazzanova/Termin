@@ -35,4 +35,11 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS preferences (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    enabled_platforms TEXT NOT NULL
+  )
+`);
+
 export default db;

@@ -103,10 +103,38 @@ export function getStoredContests(): Contest[] {
   return rows.map(rowToContest);
 }
 
-export function getUpcomingStoredContests(): Contest[] {
-  const rows = getUpcomingContestsStatement.all(
-    new Date().toISOString()
-  ) as ContestRow[];
+export function getUpcomingStoredContests(
+  platforms?: ContestPlatform[]
+): Contest[] {
+  const now = new Date().toISOString();
+
+  if (platforms !== undefined) {
+    if (platforms.length === 0) {
+      return [];
+    }
+
+    const placeholders = platforms.map(() => "?").join(", ");
+    const stmt = db.prepare(`
+      SELECT
+        id,
+        platform,
+        name,
+        start_time,
+        duration_seconds,
+        url,
+        updated_at
+      FROM contests
+      WHERE start_time > ?
+        AND platform IN (${placeholders})
+      ORDER BY start_time ASC
+    `);
+
+    const rows = stmt.all(now, ...platforms) as ContestRow[];
+
+    return rows.map(rowToContest);
+  }
+
+  const rows = getUpcomingContestsStatement.all(now) as ContestRow[];
 
   return rows.map(rowToContest);
 }
