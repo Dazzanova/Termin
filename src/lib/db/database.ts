@@ -36,6 +36,20 @@ db.exec(`
 `);
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS participation (
+    contest_id TEXT PRIMARY KEY,
+    status TEXT NOT NULL CHECK (status IN ('planned', 'participated', 'skipped')),
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (contest_id) REFERENCES contests(id)
+  )
+`);
+
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_participation_status
+  ON participation (status)
+`);
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS preferences (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     enabled_platforms TEXT NOT NULL

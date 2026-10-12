@@ -1,5 +1,5 @@
 import db from "../db/database";
-import type { Contest, ContestPlatform } from "./types";
+import type { Contest, ContestPlatform, ParticipationStatus } from "./types";
 
 type ContestRow = {
   id: string;
@@ -8,6 +8,12 @@ type ContestRow = {
   start_time: string;
   duration_seconds: number;
   url: string;
+  updated_at: string;
+};
+
+type ParticipationRow = {
+  contest_id: string;
+  status: ParticipationStatus;
   updated_at: string;
 };
 
@@ -60,6 +66,37 @@ const getUpcomingContestsByPlatformStatement = db.prepare(`
   FROM contests
   WHERE platform = ? AND start_time > ?
   ORDER BY start_time ASC
+`);
+
+const getParticipationStatement = db.prepare(`
+  SELECT status FROM participation WHERE contest_id = ?
+`);
+
+const saveParticipationStatement = db.prepare(`
+  INSERT INTO participation (contest_id, status, updated_at)
+  VALUES (@contest_id, @status, @updated_at)
+  ON CONFLICT(contest_id) DO UPDATE SET
+    status = excluded.status,
+    updated_at = excluded.updated_at
+`);
+
+const deleteParticipationStatement = db.prepare(`
+  DELETE FROM participation WHERE contest_id = ?
+`);
+
+const getHistoryStatement = db.prepare(`
+  SELECT
+    c.id,
+    c.platform,
+    c.name,
+    c.start_time,
+    c.duration_seconds,
+    c.url,
+    p.status
+  FROM contests c
+  JOIN participation p ON c.id = p.contest_id
+  WHERE c.start_time < ?
+  ORDER BY c.start_time DESC
 `);
 
 const upsertContestStatement = db.prepare(`
@@ -183,7 +220,14 @@ export function removeStaleUpcomingContests(
 
   const staleIds = stored
     .map((row) => row.id)
-    .filter((id) => !currentIds.has(id));
+    .filter((id) => {
+      if (!currentIds.has(id)) {
+        // Do not remove if the user has recorded participation
+        const participation = getParticipationStatement.get(id) as ParticipationRow | undefined;
+        return !participation;
+      }
+      return false;
+    });
 
   if (staleIds.length === 0) {
     return 0;
@@ -233,15 +277,77 @@ export function syncProviderContests(
       .filter((id) => !currentIds.has(id));
 
     for (const id of staleIds) {
-      deleteContestStatement.run(
-        id,
-        now,
-        platform
-      );
+      const participation = getParticipationStatement.get(id) as ParticipationRow | undefined;
+      if (!participation) {
+        deleteContestStatement.run(
+          id,
+          now,
+          platform
+        );
+      }
     }
 
     return staleIds.length;
   });
 
   return transaction();
+}
+
+export function getParticipationStatus(contestId: string): ParticipationStatus | null {
+  const row = getParticipationStatement.get(contestId) as ParticipationRow | undefined;
+  return row ? row.status : null;
+}
+
+export function saveParticipationStatus(
+  contestId: string,
+  status: ParticipationStatus | null
+): void {
+  if (status === null) {
+    deleteParticipationStatement.run(contestId);
+    return;
+  }
+  saveParticipationStatement.run({
+    contest_id: contestId,
+    status,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+export type HistoryEntry = Contest & { status: ParticipationStatus };
+
+export function getContestHistory(
+  status?: ParticipationStatus
+): HistoryEntry[] {
+  const now = new Date().toISOString();
+  let rows: any[];
+
+  if (status) {
+    const stmt = db.prepare(`
+      SELECT
+        c.id,
+        c.platform,
+        c.name,
+        c.start_time,
+        c.duration_seconds,
+        c.url,
+        p.status
+      FROM contests c
+      JOIN participation p ON c.id = p.contest_id
+      WHERE c.start_time < ? AND p.status = ?
+      ORDER BY c.start_time DESC
+    `);
+    rows = stmt.all(now, status);
+  } else {
+    rows = getHistoryStatement.all(now);
+  }
+
+  return rows.map((row) => ({
+    id: row.id,
+    platform: row.platform,
+    name: row.name,
+    startTime: new Date(row.start_time),
+    durationSeconds: row.duration_seconds,
+    url: row.url,
+    status: row.status,
+  }));
 }

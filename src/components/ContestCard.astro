@@ -1,11 +1,13 @@
 ---
 import type { Contest } from "../lib/contests/types";
+import { getParticipationStatus } from "../lib/contests/repository";
 
 interface Props {
     contest: Contest;
 }
 
 const { contest } = Astro.props;
+const currentStatus = getParticipationStatus(contest.id);
 
 const MONOGRAMS: Record<string, string> = {
     codeforces: "CF",
@@ -66,6 +68,236 @@ const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
             <time datetime={contest.startTime.toISOString()}>{start}</time> ·{" "}
             {duration}
         </div>
+    </div>
+
+    <div class="contest-controls">
+        <select
+            class="participation-select"
+            data-contest-id={contest.id}
+            aria-label="Participation status"
+            aria-describedby={`participation-error-${contest.id}`}
+        >
+            <option value="" selected={currentStatus === null}>None</option>
+            <option value="planned" selected={currentStatus === 'planned'}>Planned</option>
+            <option value="participated" selected={currentStatus === 'participated'}>Participated</option>
+            <option value="skipped" selected={currentStatus === 'skipped'}>Skipped</option>
+        </select>
+        <span
+            id={`participation-error-${contest.id}`}
+            class="participation-error"
+            aria-live="polite"
+        ></span>
+    </div>
+
+    <div class="contest-countdown" aria-live="polite"></div>
+</article>
+
+<script>
+    type Urgency = "far" | "soon" | "critical" | "live";
+
+    function pad(n: number) {
+        return String(n).padStart(2, "0");
+    }
+
+    async function updateParticipation(contestId: string, status: string, selectEl: HTMLSelectElement) {
+        const previousValue = selectEl.value;
+        try {
+            const response = await fetch('/api/participation', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contestId, status }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to update status');
+            }
+        } catch (err: any) {
+            selectEl.value = previousValue;
+            const errorMsg = err.message || 'Failed to update participation status';
+
+            // Simple non-blocking error notification
+            const toast = document.createElement('div');
+            toast.className = 'participation-error-toast';
+            toast.textContent = errorMsg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+
+            console.error(err);
+        }
+    }
+
+    function formatCountdown(
+        start: Date,
+        now: Date,
+    ): { text: string; urgency: Urgency } {
+        const diffMs = start.getTime() - now.getTime();
+        const oneMin = 60_000;
+        const oneHour = 3_600_000;
+        const oneDay = 86_400_000;
+
+        if (diffMs <= 0) return { text: "STARTING NOW", urgency: "live" };
+
+        if (diffMs < oneHour) {
+            const urgency = diffMs < 5 * oneMin ? "critical" : "soon";
+            return { text: `${Math.floor(diffMs / oneMin)}m`, urgency };
+        }
+
+        if (diffMs < oneDay) {
+            const h = Math.floor(diffMs / oneHour);
+            const m = Math.floor((diffMs % oneHour) / oneMin);
+            const urgency = diffMs < 30 * oneMin ? "soon" : "far";
+            return { text: `${pad(h)}h ${pad(m)}m`, urgency };
+        }
+
+        const startOfToday = new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+        );
+        const startOfTarget = new Date(
+            start.getFullYear(),
+            start.getMonth(),
+            start.getDate(),
+        );
+        const diffDays = Math.round(
+            (startOfTarget.getTime() - startOfToday.getTime()) / oneDay,
+        );
+
+        return {
+            text: diffDays === 1 ? "tomorrow" : `${diffDays}d`,
+            urgency: "far",
+        };
+    }
+
+    function renderChars(el: HTMLElement, text: string) {
+        const prev = el.dataset.prev ?? "";
+        el.textContent = "";
+
+        for (let i = 0; i < text.length; i++) {
+            const span = document.createElement("span");
+            span.className = "ct-char";
+            span.textContent = text[i];
+            if (text[i] !== prev[i]) span.classList.add("ct-flip");
+            el.appendChild(span);
+        }
+
+        el.dataset.prev = text;
+    }
+
+    function tick() {
+        const now = new Date();
+
+        document
+            .querySelectorAll<HTMLElement>(".contest-card[data-start]")
+            .forEach((card) => {
+                const start = new Date(card.dataset.start!);
+                const { text, urgency } = formatCountdown(start, now);
+
+                const el =
+                    card.querySelector<HTMLElement>(".contest-countdown");
+                if (el && el.dataset.prev !== text) renderChars(el, text);
+
+                if (card.dataset.urgency !== urgency) {
+                    card.dataset.urgency = urgency;
+
+                    if (urgency === "live") {
+                        card.classList.remove("pulse-once");
+                        void card.offsetWidth;
+                        card.classList.add("pulse-once");
+                    }
+                }
+            });
+    }
+
+    // Initialize participation listeners
+    document.querySelectorAll(".participation-select").forEach((select) => {
+        select.addEventListener("change", async (e) => {
+            const target = e.target as HTMLSelectElement;
+            const contestId = target.dataset.contestId!;
+            const status = target.value;
+            await updateParticipation(contestId, status, target);
+        });
+    });
+
+    tick();
+    setInterval(tick, 1000);
+</script>
+
+<style>
+    .contest-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+        margin-right: 8px;
+    }
+
+    .participation-select {
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        cursor: pointer;
+        outline: none;
+        transition: border-color 150ms ease, color 150ms ease;
+    }
+
+    .participation-select:hover {
+        border-color: var(--border-strong);
+        color: var(--text);
+    }
+
+    .participation-select:focus {
+        border-color: var(--brand);
+    }
+
+    .participation-error {
+        font-size: 0.65rem;
+        color: #ef4444;
+        font-weight: 600;
+        margin-left: 8px;
+        max-width: 120px;
+    }
+</style>
+
+
+    <div class="contest-main">
+        <h2 class="contest-name">
+            <a href={contest.url} target="_blank" rel="noopener noreferrer">
+                {contest.name}
+                <span class="external-link" aria-hidden="true">
+                    ↗
+                </span>
+            </a>
+        </h2>
+
+        <div class="contest-meta">
+            {contest.platform} ·{" "}
+            <time datetime={contest.startTime.toISOString()}>{start}</time> ·{" "}
+            {duration}
+        </div>
+    </div>
+
+    <div class="contest-controls">
+        <select
+            class="participation-select"
+            data-contest-id={contest.id}
+            aria-label="Participation status"
+            aria-describedby={`participation-error-${contest.id}`}
+        >
+            <option value="" selected={currentStatus === null}>None</option>
+            <option value="planned" selected={currentStatus === 'planned'}>Planned</option>
+            <option value="participated" selected={currentStatus === 'participated'}>Participated</option>
+            <option value="skipped" selected={currentStatus === 'skipped'}>Skipped</option>
+        </select>
+        <span
+            id={`participation-error-${contest.id}`}
+            class="participation-error"
+            aria-live="polite"
+        ></span>
     </div>
 
     <div class="contest-countdown" aria-live="polite"></div>

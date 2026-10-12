@@ -25,7 +25,14 @@ vi.mock("../db/database", async () => {
       updated_at TEXT NOT NULL
     )
   `);
-
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS participation (
+      contest_id TEXT PRIMARY KEY,
+      status TEXT NOT NULL CHECK (status IN ('planned', 'participated', 'skipped')),
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (contest_id) REFERENCES contests(id)
+    )
+  `);
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_contests_start_time
     ON contests (start_time)

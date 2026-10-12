@@ -4,6 +4,8 @@ export type ContestPlatform =
   | "codechef"
   | "leetcode";
 
+export type ParticipationStatus = "planned" | "participated" | "skipped";
+
 export type Contest = {
   id: string;
   platform: ContestPlatform;
