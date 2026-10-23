@@ -1,0 +1,33 @@
+name: New platform
+description: Request support for another contest platform
+labels: [good first issue, platform]
+body:
+  - type: input
+    id: platform
+    attributes:
+      label: Platform name
+    validations:
+      required: true
+  - type: input
+    id: api
+    attributes:
+      label: Public API endpoint
+      description: A URL that returns upcoming contests without authentication.
+      placeholder: https://example.com/api/contests
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample response
+      description: Paste a trimmed response so the adapter can be written without guesswork.
+      render: json
+    validations:
+      required: true
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this adapter myself (see CONTRIBUTING.md)
+          required: false
