@@ -3,6 +3,7 @@ import "../styles/global.css";
 import ContestCard from "../components/ContestCard.astro";
 import ContestHero from "../components/ContestHero.astro";
 import SyncStatus from "../components/SyncStatus.astro";
+import SubscribeCard from "../components/SubscribeCard.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
 import { getSyncState } from "../lib/contests/sync-state";
 import type { Contest } from "../lib/contests/types";
@@ -75,15 +76,22 @@ for (const contest of contests) {
                 <div class="header-info">
                     <SyncStatus syncState={syncState} />
                     <div class="header-count">{contests.length} upcoming</div>
-                    <a href="/settings" class="settings-link">
-                        Settings
-                    </a>
+                    <div class="nav-links">
+                        <a href="/planning" class="settings-link">
+                            Planning
+                        </a>
+                        <a href="/settings" class="settings-link">
+                            Settings
+                        </a>
+                    </div>
                 </div>
             </header>
 
             {nextContest && (
                 <ContestHero contest={nextContest} />
             )}
+
+            <SubscribeCard />
 
             <section>
                 <div class="section-heading">
@@ -120,5 +128,10 @@ for (const contest of contests) {
         color: var(--text);
         text-decoration: underline;
         text-underline-offset: 4px;
+    }
+
+    .nav-links {
+        display: flex;
+        gap: 14px;
     }
 </style>

@@ -1,11 +1,9 @@
 import type { Contest, ContestPlatform } from "./types";
+import { SUPPORTED_PLATFORMS } from "../preferences/types";
 
-const SUPPORTED_PLATFORMS: ReadonlySet<string> = new Set<ContestPlatform>([
-  "codeforces",
-  "atcoder",
-  "codechef",
-  "leetcode",
-]);
+const SUPPORTED_PLATFORMS_SET: ReadonlySet<string> = new Set<string>(
+  SUPPORTED_PLATFORMS
+);
 
 function isValidUrl(value: string): boolean {
   try {
@@ -21,7 +19,7 @@ export function validateContest(contest: Contest): boolean {
     return false;
   }
 
-  if (!SUPPORTED_PLATFORMS.has(contest.platform)) {
+  if (!SUPPORTED_PLATFORMS_SET.has(contest.platform)) {
     return false;
   }
 

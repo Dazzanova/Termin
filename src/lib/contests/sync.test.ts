@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import Database from "better-sqlite3";
 import type { Contest } from "./types";
 import db from "../db/database";
 import { scheduleReminders } from "../reminders/schedule";
@@ -7,41 +6,6 @@ import { scheduleReminders } from "../reminders/schedule";
 vi.mock("../reminders/schedule", () => ({
   scheduleReminders: vi.fn(),
 }));
-
-vi.mock("../db/database", async () => {
-  const { default: Database } = await import("better-sqlite3");
-
-  const db = new Database(":memory:");
-
-  db.exec(`
-    CREATE TABLE contests (
-      id TEXT PRIMARY KEY,
-      platform TEXT NOT NULL,
-      name TEXT NOT NULL,
-      start_time TEXT NOT NULL,
-      duration_seconds INTEGER NOT NULL,
-      url TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
-
-  db.exec(`
-    CREATE INDEX idx_contests_start_time
-    ON contests (start_time)
-  `);
-  db.exec(`
-    CREATE TABLE participation (
-      contest_id TEXT PRIMARY KEY,
-      status TEXT NOT NULL CHECK (status IN ('planned', 'participated', 'skipped')),
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (contest_id) REFERENCES contests(id)
-    )
-  `);
-
-  return {
-    default: db,
-  };
-});
 
 vi.mock("./providers/codeforces", () => ({
   getCodeforcesContests: vi.fn(),

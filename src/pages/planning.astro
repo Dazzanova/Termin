@@ -1,0 +1,230 @@
+---
+import "../styles/global.css";
+import ContestCard from "../components/ContestCard.astro";
+import { getUpcomingStoredContests } from "../lib/contests/repository";
+import { getPreferences } from "../lib/preferences/repository";
+import { calculateRecommendations, getWeeklyCapacity, type Recommendation } from "../lib/contests/recommendations";
+import { calculateBehavioralInsights, type BehavioralInsights } from "../lib/contests/insights";
+import { getPrioritizedContestIds } from "../lib/contests/repository";
+
+const preferences = getPreferences();
+const contests = getUpcomingStoredContests(preferences.enabledPlatforms);
+const prioritizedIds = getPrioritizedContestIds();
+const recommendations = calculateRecommendations(contests, preferences, prioritizedIds);
+const capacity = getWeeklyCapacity(contests, prioritizedIds, preferences);
+const insights = calculateBehavioralInsights();
+
+const now = new Date();
+const groups: { label: string; recommendations: Recommendation[] }[] = [];
+
+function dayLabel(date: Date, now: Date): string {
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.round((startOfDay.getTime() - startOfToday.getTime()) / 86_400_000);
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Tomorrow";
+    return date.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
+
+recommendations.forEach(rec => {
+    const label = dayLabel(rec.contest.startTime, now);
+    const existing = groups.find(g => g.label === label);
+    if (existing) existing.recommendations.push(rec);
+    else groups.push({ label, recommendations: [rec] });
+});
+
+const PLATFORM_COLORS: Record<string, string> = {
+    codeforces: "#2f8fea",
+    atcoder: "#8b5cf6",
+    codechef: "#a15f2a",
+    leetcode: "#f59f1a",
+};
+---
+
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width" />
+        <title>Planning · Termin</title>
+    </head>
+    <body>
+        <main>
+            <header class="site-header">
+                <div>
+                    <p class="eyebrow">
+                        <a href="/" class="nav-back">← Back to dashboard</a>
+                    </p>
+                    <h1>Weekly Planning</h1>
+                    <p class="subtitle">Optimize your contest schedule.</p>
+                </div>
+                <div class="header-info">
+                    <div class="capacity-badge">
+                        Capacity: {capacity.remaining} / {capacity.total}
+                    </div>
+                </div>
+            </header>
+
+            <section class="insights-grid">
+                <div class="insight-card">
+                    <h3>Participation Rate</h3>
+                    <div class="insight-value">{insights.participationRate.rate.toFixed(1)}%</div>
+                    <p class="insight-meta">{insights.participationRate.actualParticipated} of {insights.participationRate.totalPlanned} planned</p>
+                </div>
+                <div class="insight-card">
+                    <h3>Top Platform</h3>
+                    {insights.platformDistribution[0] ? (
+                        <>
+                            <div class="insight-value">{insights.platformDistribution[0].platform}</div>
+                            <p class="insight-meta">{insights.platformDistribution[0].percentage.toFixed(1)}% of history</p>
+                        </>
+                    ) : (
+                        <p class="empty-state">No data available</p>
+                    )}
+                </div>
+                <div class="insight-card">
+                    <h3>Sample Size</h3>
+                    <div class="insight-value">{insights.sampleSize}</div>
+                    <p class="insight-meta">Recorded contests</p>
+                </div>
+            </section>
+
+            <section>
+                <div class="section-heading">
+                    <h2>Recommended for you</h2>
+                </div>
+
+                {groups.map(group => (
+                    <div class="day-group">
+                        <p class="day-label">{group.label}</p>
+                        <div class="contest-list">
+                            {group.recommendations.map(rec => (
+                                <div class="rec-wrapper">
+                                    <ContestCard contest={rec.contest} />
+                                    <div class="rec-details">
+                                        <div class="priority-tag" data-priority={rec.priorityLabel}>
+                                            {rec.priorityLabel} Priority
+                                        </div>
+                                        <ul class="reasons-list">
+                                            {rec.reasons.map(reason => <li>{reason}</li>)}
+                                        </ul>
+                                        {rec.isConflict && (
+                                            <div class="conflict-warning">⚠️ Schedule Conflict</div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </section>
+        </main>
+    </body>
+</html>
+
+<style>
+    .nav-back {
+        color: var(--text-muted);
+        text-decoration: none;
+        transition: color 150ms ease;
+        font-weight: 500;
+    }
+    .nav-back:hover { color: var(--text); }
+
+    .capacity-badge {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .insights-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 40px;
+    }
+
+    .insight-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        padding: 20px;
+        border-radius: var(--radius-md);
+        text-align: center;
+    }
+
+    .insight-card h3 {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+        letter-spacing: 0.05em;
+    }
+
+    .insight-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--brand);
+        margin-bottom: 4px;
+    }
+
+    .insight-meta {
+        font-size: 0.75rem;
+        color: var(--text-dim);
+    }
+
+    .rec-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        margin-bottom: 20px;
+    }
+
+    .rec-details {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-top: none;
+        padding: 12px 16px;
+        border-bottom-left-radius: var(--radius-md);
+        border-bottom-right-radius: var(--radius-md);
+    }
+
+    .priority-tag {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 8px;
+    }
+    .priority-tag[data-priority="High"] { background: #fee2e2; color: #dc2626; }
+    .priority-tag[data-priority="Medium"] { background: #fef3c7; color: #d97706; }
+    .priority-tag[data-priority="Low"] { background: #f3f4f6; color: #4b5563; }
+    .priority-tag[data-priority="None"] { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+
+    .reasons-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 0 0;
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+    .reasons-list li::before {
+        content: "• ";
+        color: var(--brand);
+        font-weight: bold;
+    }
+
+    .conflict-warning {
+        margin-top: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #dc2626;
+    }
+
+    .day-group { margin-bottom: 32px; }
+    .day-label { font-weight: 600; margin-bottom: 12px; }
+    .contest-list { display: grid; gap: 16px; }
+</style>

@@ -1,47 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import Database from "better-sqlite3";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { Contest } from "../contests/types";
-
-vi.mock("../db/database", async () => {
-  const { default: Database } = await import("better-sqlite3");
-
-  const db = new Database(":memory:");
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS preferences (
-      id INTEGER PRIMARY KEY CHECK (id = 1),
-      enabled_platforms TEXT NOT NULL
-    )
-  `);
-
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS contests (
-      id TEXT PRIMARY KEY,
-      platform TEXT NOT NULL,
-      name TEXT NOT NULL,
-      start_time TEXT NOT NULL,
-      duration_seconds INTEGER NOT NULL,
-      url TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    )
-  `);
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS participation (
-      contest_id TEXT PRIMARY KEY,
-      status TEXT NOT NULL CHECK (status IN ('planned', 'participated', 'skipped')),
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (contest_id) REFERENCES contests(id)
-    )
-  `);
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_contests_start_time
-    ON contests (start_time)
-  `);
-
-  return {
-    default: db,
-  };
-});
 
 import db from "../db/database";
 import {

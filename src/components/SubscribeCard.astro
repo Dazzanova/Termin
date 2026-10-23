@@ -1,0 +1,145 @@
+---
+import { PLATFORM_LABELS } from "../lib/calendar/ics";
+import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
+
+const feeds = [
+  { href: "/calendar.ics", label: "All platforms" },
+  ...SUPPORTED_PLATFORMS.map((platform) => ({
+    href: `/calendar/${platform}.ics`,
+    label: PLATFORM_LABELS[platform],
+  })),
+];
+---
+
+<section class="subscribe">
+    <div class="section-heading">
+        <h2>Subscribe</h2>
+        <span>iCalendar</span>
+    </div>
+
+    <p class="subscribe-intro">
+        Add a live feed to Google Calendar, Apple Calendar, or Outlook. Feeds
+        refresh whenever the site is rebuilt.
+    </p>
+
+    <ul class="feed-list">
+        {feeds.map((feed) => (
+            <li class="feed">
+                <a class="feed-link" href={feed.href}>{feed.label}</a>
+                <button class="feed-copy" type="button" data-copy={feed.href}>
+                    Copy URL
+                </button>
+            </li>
+        ))}
+    </ul>
+
+    <p class="subscribe-hint">
+        Google Calendar: <em>Other calendars → From URL</em>. Apple Calendar:
+        <em>File → New Calendar Subscription</em>.
+    </p>
+</section>
+
+<script>
+    document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
+        const original = button.textContent ?? "Copy URL";
+
+        button.addEventListener("click", async () => {
+            const path = button.dataset.copy;
+
+            if (!path) {
+                return;
+            }
+
+            const url = new URL(path, window.location.origin).toString();
+
+            try {
+                await navigator.clipboard.writeText(url);
+                button.textContent = "Copied";
+            } catch {
+                button.textContent = url;
+            }
+
+            window.setTimeout(() => {
+                button.textContent = original;
+            }, 1500);
+        });
+    });
+</script>
+
+<style>
+    .subscribe {
+        margin-bottom: 40px;
+        padding: 20px;
+        background: var(--surface);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
+    }
+
+    .subscribe .section-heading {
+        margin-bottom: 12px;
+    }
+
+    .subscribe-intro {
+        margin: 0 0 16px;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+
+    .feed-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 0 0 12px;
+        padding: 0;
+        list-style: none;
+    }
+
+    .feed {
+        display: flex;
+        align-items: stretch;
+        overflow: hidden;
+        background: var(--surface-elevated);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+    }
+
+    .feed-link {
+        padding: 8px 12px;
+        color: var(--text);
+        font-size: 0.8rem;
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .feed-link:hover {
+        background: var(--surface-hover);
+    }
+
+    .feed-copy {
+        padding: 8px 12px;
+        color: var(--text-dim);
+        font-family: inherit;
+        font-size: 0.75rem;
+        background: transparent;
+        border: 0;
+        border-left: 1px solid var(--border);
+        cursor: pointer;
+    }
+
+    .feed-copy:hover {
+        color: var(--text);
+        background: var(--surface-hover);
+    }
+
+    .subscribe-hint {
+        margin: 0;
+        color: var(--text-dim);
+        font-size: 0.75rem;
+    }
+
+    .subscribe-hint em {
+        color: var(--text-muted);
+        font-style: normal;
+    }
+</style>

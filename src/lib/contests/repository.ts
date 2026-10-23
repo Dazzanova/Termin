@@ -134,6 +134,20 @@ const deleteContestStatement = db.prepare(`
     AND platform = ?
 `);
 
+// Priority storage
+const getPrioritizedIdsStatement = db.prepare(`
+  SELECT contest_id FROM contest_priorities
+`);
+
+const savePriorityStatement = db.prepare(`
+  INSERT INTO contest_priorities (contest_id, prioritized_at)
+  VALUES (?, ?)
+`);
+
+const deletePriorityStatement = db.prepare(`
+  DELETE FROM contest_priorities WHERE contest_id = ?
+`);
+
 export function getStoredContests(): Contest[] {
   const rows = getContestsStatement.all() as ContestRow[];
 
@@ -350,4 +364,17 @@ export function getContestHistory(
     url: row.url,
     status: row.status,
   }));
+}
+
+export function getPrioritizedContestIds(): Set<string> {
+  const rows = getPrioritizedIdsStatement.all() as { contest_id: string }[];
+  return new Set(rows.map(row => row.contest_id));
+}
+
+export function toggleContestPriority(contestId: string, isPrioritized: boolean): void {
+  if (isPrioritized) {
+    savePriorityStatement.run(contestId, new Date().toISOString());
+  } else {
+    deletePriorityStatement.run(contestId);
+  }
 }

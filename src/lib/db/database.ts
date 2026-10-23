@@ -1,11 +1,18 @@
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
+import path from "node:path";
+import { runMigrations } from "./migrate";
 
-mkdirSync(".data", { recursive: true });
+const dbPath = process.env.TERMIN_DB_PATH ?? ".data/termin.db";
 
-const db = new Database(".data/termin.db");
+if (dbPath !== ":memory:") {
+  mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+}
+
+const db = new Database(dbPath);
 
 db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS contests (
@@ -55,5 +62,7 @@ db.exec(`
     enabled_platforms TEXT NOT NULL
   )
 `);
+
+runMigrations(db);
 
 export default db;
