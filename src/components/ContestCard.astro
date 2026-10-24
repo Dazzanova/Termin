@@ -3,262 +3,243 @@ import type { Contest } from "../lib/contests/types";
 import { getParticipationStatus } from "../lib/contests/repository";
 
 interface Props {
-    contest: Contest;
+  contest: Contest;
+  /** Hide the date column when the row already sits under a day heading. */
+  showDate?: boolean;
 }
 
-const { contest } = Astro.props;
+const { contest, showDate = true } = Astro.props;
 const currentStatus = getParticipationStatus(contest.id);
 
 const MONOGRAMS: Record<string, string> = {
-    codeforces: "CF",
-    atcoder: "AT",
-    codechef: "CC",
-    leetcode: "LC",
+  codeforces: "CF",
+  atcoder: "AT",
+  codechef: "CC",
+  leetcode: "LC",
 };
 
-const PLATFORM_COLORS: Record<string, string> = {
-    codeforces: "#2f8fea",
-    atcoder: "#8b5cf6",
-    codechef: "#a15f2a",
-    leetcode: "#f59f1a",
+const PLATFORM_NAMES: Record<string, string> = {
+  codeforces: "Codeforces",
+  atcoder: "AtCoder",
+  codechef: "CodeChef",
+  leetcode: "LeetCode",
 };
-
-const FALLBACK_COLOR = "#4a4a52";
 
 const platformKey = contest.platform.toLowerCase();
-
 const monogram =
-    MONOGRAMS[platformKey] ?? contest.platform.slice(0, 2).toUpperCase();
+  MONOGRAMS[platformKey] ?? contest.platform.slice(0, 2).toUpperCase();
+const platformName = PLATFORM_NAMES[platformKey] ?? contest.platform;
 
-const badgeColor = PLATFORM_COLORS[platformKey] ?? FALLBACK_COLOR;
-const badgeStyleAttr = `background:${badgeColor}22;border:1px solid ${badgeColor}66;color:${badgeColor};`;
+const dateLabel = contest.startTime.toLocaleDateString("en-GB", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
 
-const start = contest.startTime.toLocaleString("en-IN", {
-    dateStyle: "medium",
-    timeStyle: "short",
+const timeLabel = contest.startTime.toLocaleTimeString("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 const hours = Math.floor(contest.durationSeconds / 3600);
 const minutes = Math.floor((contest.durationSeconds % 3600) / 60);
-
-const duration = minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+const duration = `${hours}h ${String(minutes).padStart(2, "0")}m`;
 ---
 
 <article
-    class="contest-card"
-    data-start={contest.startTime.toISOString()}
-    data-urgency="far"
+  class="contest-card"
+  data-start={contest.startTime.toISOString()}
+  data-urgency="far"
 >
-    <div class="contest-badge" style={badgeStyleAttr}>
-        {monogram}
-    </div>
+  <div class="contest-when">
+    {showDate && <span class="date">{dateLabel}</span>}
+    <time class="time" datetime={contest.startTime.toISOString()}>
+      {timeLabel}
+    </time>
+  </div>
 
-    <div class="contest-main">
-        <h2 class="contest-name">
-            <a href={contest.url} target="_blank" rel="noopener noreferrer">
-                {contest.name}
-                <span class="external-link" aria-hidden="true">
-                    ↗
-                </span>
-            </a>
-        </h2>
+  <div class="contest-main">
+    <h2 class="contest-name">
+      <a href={contest.url} target="_blank" rel="noopener noreferrer">
+        {contest.name}
+        <span class="external-link" aria-hidden="true">↗</span>
+      </a>
+    </h2>
 
-        <div class="contest-meta">
-            {contest.platform} ·{" "}
-            <time datetime={contest.startTime.toISOString()}>{start}</time> ·{" "}
-            {duration}
-        </div>
+    <div class="contest-meta">
+      <span class="chip chip-mono">{monogram}</span>
+      <span>{platformName}</span>
+      <span class="sep">·</span>
+      <span class="duration">{duration}</span>
     </div>
+  </div>
 
-    <div class="contest-controls">
-        <select
-            class="participation-select"
-            data-contest-id={contest.id}
-            aria-label="Participation status"
-            aria-describedby={`participation-error-${contest.id}`}
-        >
-            <option value="" selected={currentStatus === null}>None</option>
-            <option value="planned" selected={currentStatus === 'planned'}>Planned</option>
-            <option value="participated" selected={currentStatus === 'participated'}>Participated</option>
-            <option value="skipped" selected={currentStatus === 'skipped'}>Skipped</option>
-        </select>
-        <span
-            id={`participation-error-${contest.id}`}
-            class="participation-error"
-            aria-live="polite"
-        ></span>
-    </div>
+  <div class="contest-actions">
+    <span
+      id={`participation-error-${contest.id}`}
+      class="participation-error"
+      aria-live="polite"></span>
+
+    <select
+      class="participation-select"
+      data-contest-id={contest.id}
+      aria-label="Participation status"
+      aria-describedby={`participation-error-${contest.id}`}
+    >
+      <option value="" selected={currentStatus === null}>Not tracked</option>
+      <option value="planned" selected={currentStatus === "planned"}>
+        Planned
+      </option>
+      <option value="participated" selected={currentStatus === "participated"}>
+        Participated
+      </option>
+      <option value="skipped" selected={currentStatus === "skipped"}>
+        Skipped
+      </option>
+    </select>
 
     <div class="contest-countdown" aria-live="polite"></div>
+  </div>
 </article>
 
 <script>
-    type Urgency = "far" | "soon" | "critical" | "live";
+  type Urgency = "far" | "soon" | "critical" | "live";
 
-    function pad(n: number) {
-        return String(n).padStart(2, "0");
+  function pad(value: number) {
+    return String(value).padStart(2, "0");
+  }
+
+  function showToast(message: string) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    window.setTimeout(() => toast.remove(), 3000);
+  }
+
+  async function updateParticipation(
+    contestId: string,
+    status: string,
+    selectEl: HTMLSelectElement
+  ) {
+    const previousValue = selectEl.value;
+
+    try {
+      const response = await fetch("/api/participation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contestId, status }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Could not update status");
+      }
+    } catch (error) {
+      selectEl.value = previousValue;
+      showToast(
+        error instanceof Error ? error.message : "Could not update status"
+      );
+    }
+  }
+
+  function formatCountdown(
+    start: Date,
+    now: Date
+  ): { text: string; urgency: Urgency } {
+    const diffMs = start.getTime() - now.getTime();
+    const oneMin = 60_000;
+    const oneHour = 3_600_000;
+    const oneDay = 86_400_000;
+
+    if (diffMs <= 0) return { text: "LIVE", urgency: "live" };
+
+    if (diffMs < oneHour) {
+      const urgency: Urgency = diffMs < 5 * oneMin ? "critical" : "soon";
+      return { text: `${Math.floor(diffMs / oneMin)}m`, urgency };
     }
 
-    async function updateParticipation(contestId: string, status: string, selectEl: HTMLSelectElement) {
-        const previousValue = selectEl.value;
-        try {
-            const response = await fetch('/api/participation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contestId, status }),
-            });
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || 'Failed to update status');
-            }
-        } catch (err: any) {
-            selectEl.value = previousValue;
-            const errorMsg = err.message || 'Failed to update participation status';
-
-            // Simple non-blocking error notification
-            const toast = document.createElement('div');
-            toast.className = 'participation-error-toast';
-            toast.textContent = errorMsg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-
-            console.error(err);
-        }
+    if (diffMs < oneDay) {
+      const h = Math.floor(diffMs / oneHour);
+      const m = Math.floor((diffMs % oneHour) / oneMin);
+      const urgency: Urgency = diffMs < 30 * oneMin ? "soon" : "far";
+      return { text: `${pad(h)}h ${pad(m)}m`, urgency };
     }
 
-    function formatCountdown(
-        start: Date,
-        now: Date,
-    ): { text: string; urgency: Urgency } {
-        const diffMs = start.getTime() - now.getTime();
-        const oneMin = 60_000;
-        const oneHour = 3_600_000;
-        const oneDay = 86_400_000;
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    const startOfTarget = new Date(
+      start.getFullYear(),
+      start.getMonth(),
+      start.getDate()
+    );
+    const diffDays = Math.round(
+      (startOfTarget.getTime() - startOfToday.getTime()) / oneDay
+    );
 
-        if (diffMs <= 0) return { text: "STARTING NOW", urgency: "live" };
+    return {
+      text: diffDays === 1 ? "tomorrow" : `${diffDays}d`,
+      urgency: "far",
+    };
+  }
 
-        if (diffMs < oneHour) {
-            const urgency = diffMs < 5 * oneMin ? "critical" : "soon";
-            return { text: `${Math.floor(diffMs / oneMin)}m`, urgency };
+  function tick() {
+    const now = new Date();
+
+    document
+      .querySelectorAll<HTMLElement>(".contest-card[data-start]")
+      .forEach((card) => {
+        const start = new Date(card.dataset.start!);
+        const { text, urgency } = formatCountdown(start, now);
+
+        const countdown =
+          card.querySelector<HTMLElement>(".contest-countdown");
+
+        if (countdown && countdown.textContent !== text) {
+          countdown.textContent = text;
         }
 
-        if (diffMs < oneDay) {
-            const h = Math.floor(diffMs / oneHour);
-            const m = Math.floor((diffMs % oneHour) / oneMin);
-            const urgency = diffMs < 30 * oneMin ? "soon" : "far";
-            return { text: `${pad(h)}h ${pad(m)}m`, urgency };
-        }
+        if (card.dataset.urgency !== urgency) {
+          card.dataset.urgency = urgency;
 
-        const startOfToday = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
+          if (urgency === "live") {
+            card.classList.remove("pulse-once");
+            void card.offsetWidth;
+            card.classList.add("pulse-once");
+          }
+        }
+      });
+  }
+
+  document.querySelectorAll<HTMLSelectElement>(".participation-select").forEach(
+    (select) => {
+      select.addEventListener("change", (event) => {
+        const target = event.target as HTMLSelectElement;
+        void updateParticipation(
+          target.dataset.contestId!,
+          target.value,
+          target
         );
-        const startOfTarget = new Date(
-            start.getFullYear(),
-            start.getMonth(),
-            start.getDate(),
-        );
-        const diffDays = Math.round(
-            (startOfTarget.getTime() - startOfToday.getTime()) / oneDay,
-        );
-
-        return {
-            text: diffDays === 1 ? "tomorrow" : `${diffDays}d`,
-            urgency: "far",
-        };
+      });
     }
+  );
 
-    function renderChars(el: HTMLElement, text: string) {
-        const prev = el.dataset.prev ?? "";
-        el.textContent = "";
-
-        for (let i = 0; i < text.length; i++) {
-            const span = document.createElement("span");
-            span.className = "ct-char";
-            span.textContent = text[i];
-            if (text[i] !== prev[i]) span.classList.add("ct-flip");
-            el.appendChild(span);
-        }
-
-        el.dataset.prev = text;
-    }
-
-    function tick() {
-        const now = new Date();
-
-        document
-            .querySelectorAll<HTMLElement>(".contest-card[data-start]")
-            .forEach((card) => {
-                const start = new Date(card.dataset.start!);
-                const { text, urgency } = formatCountdown(start, now);
-
-                const el =
-                    card.querySelector<HTMLElement>(".contest-countdown");
-                if (el && el.dataset.prev !== text) renderChars(el, text);
-
-                if (card.dataset.urgency !== urgency) {
-                    card.dataset.urgency = urgency;
-
-                    if (urgency === "live") {
-                        card.classList.remove("pulse-once");
-                        void card.offsetWidth;
-                        card.classList.add("pulse-once");
-                    }
-                }
-            });
-    }
-
-    // Initialize participation listeners
-    document.querySelectorAll(".participation-select").forEach((select) => {
-        select.addEventListener("change", async (e) => {
-            const target = e.target as HTMLSelectElement;
-            const contestId = target.dataset.contestId!;
-            const status = target.value;
-            await updateParticipation(contestId, status, target);
-        });
-    });
-
-    tick();
-    setInterval(tick, 1000);
+  tick();
+  window.setInterval(tick, 1000);
 </script>
 
 <style>
-    .contest-controls {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-left: auto;
-        margin-right: 8px;
-    }
+  .participation-error {
+    max-width: 160px;
+    color: var(--danger);
+    font-size: 0.6875rem;
+    font-weight: 550;
+  }
 
-    .participation-select {
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 2px 6px;
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--text-muted);
-        cursor: pointer;
-        outline: none;
-        transition: border-color 150ms ease, color 150ms ease;
-    }
-
-    .participation-select:hover {
-        border-color: var(--border-strong);
-        color: var(--text);
-    }
-
-    .participation-select:focus {
-        border-color: var(--brand);
-    }
-
-    .participation-error {
-        font-size: 0.65rem;
-        color: #ef4444;
-        font-weight: 600;
-        margin-left: 8px;
-        max-width: 120px;
-    }
+  .participation-error:empty {
+    display: none;
+  }
 </style>

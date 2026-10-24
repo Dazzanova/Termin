@@ -1,279 +1,190 @@
 ---
-import "../styles/global.css";
+import Layout from "../components/Layout.astro";
 import { getContestHistory } from "../lib/contests/repository";
 import type { ParticipationStatus } from "../lib/contests/types";
 
-const statusFilter = Astro.url.searchParams.get('status') as ParticipationStatus | null;
+const statusFilter = Astro.url.searchParams.get(
+  "status"
+) as ParticipationStatus | null;
+
 const history = getContestHistory(statusFilter);
 
 const PLATFORM_NAMES: Record<string, string> = {
-    codeforces: "Codeforces",
-    atcoder: "AtCoder",
-    codechef: "CodeChef",
-    leetcode: "LeetCode",
+  codeforces: "Codeforces",
+  atcoder: "AtCoder",
+  codechef: "CodeChef",
+  leetcode: "LeetCode",
 };
 
-const PLATFORM_COLORS: Record<string, string> = {
-    codeforces: "#2f8fea",
-    atcoder: "#8b5cf6",
-    codechef: "#a15f2a",
-    leetcode: "#f59f1a",
+const MONOGRAMS: Record<string, string> = {
+  codeforces: "CF",
+  atcoder: "AT",
+  codechef: "CC",
+  leetcode: "LC",
 };
 
 const STATUS_LABELS: Record<ParticipationStatus, string> = {
-    planned: "Planned",
-    participated: "Participated",
-    skipped: "Skipped",
+  planned: "Planned",
+  participated: "Participated",
+  skipped: "Skipped",
 };
 
-const STATUS_COLORS: Record<ParticipationStatus, string> = {
-    planned: "var(--text-muted)",
-    participated: "var(--brand)",
-    skipped: "var(--text-dim)",
+const STATUS_CLASS: Record<ParticipationStatus, string> = {
+  planned: "chip-accent",
+  participated: "chip-success",
+  skipped: "",
+};
+
+const filters = [
+  { href: "/history", label: "All", value: null },
+  ...Object.entries(STATUS_LABELS).map(([value, label]) => ({
+    href: `/history?status=${value}`,
+    label,
+    value,
+  })),
+];
+
+const counts = {
+  total: getContestHistory().length,
+  participated: getContestHistory("participated").length,
 };
 ---
 
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width" />
-        <title>History · Termin</title>
-    </head>
+<Layout
+  title="History — Termin"
+  active="history"
+  description="Which contests you planned and which you actually joined."
+>
+  <div class="page-head">
+    <div>
+      <h1>History</h1>
+      <p class="subtitle">
+        {counts.total} tracked · {counts.participated} participated
+      </p>
+    </div>
 
-    <body>
-        <main>
-            <header class="site-header">
-                <div class="header-title">
-                    <p class="eyebrow">
-                        <a href="/" class="nav-back">
-                            ← Back to contests
-                        </a>
-                    </p>
-                    <h1>History</h1>
-                    <p class="subtitle">Your contest participation history.</p>
-                </div>
+    <nav class="filters" aria-label="Filter by status">
+      {filters.map((filter) => (
+        <a
+          href={filter.href}
+          class:list={["filter", { active: statusFilter === filter.value }]}
+          aria-current={statusFilter === filter.value ? "true" : undefined}
+        >
+          {filter.label}
+        </a>
+      ))}
+    </nav>
+  </div>
 
-                <div class="filter-controls">
-                    <span class="filter-label">Filter by status:</span>
-                    <div class="filter-buttons">
-                        <a href="/history" class="filter-btn" data-active={!statusFilter}>
-                            All
-                        </a>
-                        {Object.entries(STATUS_LABELS).map(([status, label]) => (
-                            <a
-                                href={`/history?status=${status}`}
-                                class="filter-btn"
-                                data-active={statusFilter === status}
-                            >
-                                {label}
-                            </a>
-                        ))}
-                    </div>
-                </div>
-            </header>
+  <section>
+    {history.length === 0 ? (
+      <div class="empty-state">
+        <h3>No tracked contests</h3>
+        <p>
+          Set a participation status on the dashboard and it will show up here.
+        </p>
+      </div>
+    ) : (
+      <div class="contest-list">
+        {history.map((entry) => (
+          <article class="history-item">
+            <div class="contest-when">
+              <span class="date">
+                {entry.startTime.toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+              <time class="time" datetime={entry.startTime.toISOString()}>
+                {entry.startTime.toLocaleTimeString("en-GB", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </time>
+            </div>
 
-            <section>
-                {history.length === 0 ? (
-                    <div class="empty-state">
-                        <div class="empty-icon">📜</div>
-                        <h2>No history found</h2>
-                        <p>Participate in contests to see them here.</p>
-                    </div>
-                ) : (
-                    <div class="history-list">
-                        {history.map((entry) => (
-                            <div class="history-item">
-                                <div class="history-platform-badge" style={`background:${PLATFORM_COLORS[entry.platform] || '#4a4a52'}22; border:1px solid ${PLATFORM_COLORS[entry.platform] || '#4a4a52'}66; color:${PLATFORM_COLORS[entry.platform] || '#4a4a52'};`}>
-                                    {entry.platform.slice(0, 2).toUpperCase()}
-                                </div>
+            <div class="contest-main">
+              <h2 class="contest-name">
+                <a href={entry.url} target="_blank" rel="noopener noreferrer">
+                  {entry.name}
+                  <span class="external-link" aria-hidden="true">↗</span>
+                </a>
+              </h2>
+              <div class="contest-meta">
+                <span class="chip chip-mono">
+                  {MONOGRAMS[entry.platform] ??
+                    entry.platform.slice(0, 2).toUpperCase()}
+                </span>
+                <span>{PLATFORM_NAMES[entry.platform] ?? entry.platform}</span>
+              </div>
+            </div>
 
-                                <div class="history-main">
-                                    <h3 class="history-name">
-                                        <a href={entry.url} target="_blank" rel="noopener noreferrer">
-                                            {entry.name}
-                                        </a>
-                                    </h3>
-                                    <div class="history-meta">
-                                        <time datetime={entry.startTime.toISOString()}>
-                                            {entry.startTime.toLocaleDateString("en-IN", {
-                                                dateStyle: "medium",
-                                            })}
-                                        </time>
-                                        <span> · {PLATFORM_NAMES[entry.platform] || entry.platform}</span>
-                                    </div>
-                                </div>
+            <span class:list={["chip", STATUS_CLASS[entry.status]]}>
+              {STATUS_LABELS[entry.status]}
+            </span>
+          </article>
+        ))}
+      </div>
+    )}
+  </section>
+</Layout>
 
-                                <div class="history-status" style={`color: ${STATUS_COLORS[entry.status]};`}>
-                                    {STATUS_LABELS[entry.status]}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
-        </main>
+<style>
+  .filters {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
 
-        <style>
-            .header-title {
-                display: flex;
-                flex-direction: column;
-                gap: 4px;
-            }
+  .filter {
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition:
+      color 120ms ease,
+      background 120ms ease;
+  }
 
-            .nav-back {
-                color: var(--text-muted);
-                text-decoration: none;
-                transition: color 150ms ease;
-                font-weight: 500;
-            }
+  .filter:hover {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
 
-            .nav-back:hover {
-                color: var(--text);
-            }
+  .filter.active {
+    color: var(--text);
+    background: var(--surface-hover);
+  }
 
-            .filter-controls {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                margin-top: 12px;
-            }
+  .history-item {
+    display: grid;
+    grid-template-columns: 88px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 14px;
+    background: var(--surface);
+  }
 
-            .filter-label {
-                font-size: 0.75rem;
-                font-weight: 600;
-                color: var(--text-muted);
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
+  .history-item:hover {
+    background: var(--surface-hover);
+  }
 
-            .filter-buttons {
-                display: flex;
-                gap: 6px;
-            }
+  @media (max-width: 720px) {
+    .history-item {
+      grid-template-columns: 1fr auto;
+      row-gap: 8px;
+    }
 
-            .filter-btn {
-                font-size: 0.75rem;
-                font-weight: 500;
-                padding: 4px 10px;
-                border-radius: var(--radius-sm);
-                border: 1px solid var(--border);
-                color: var(--text-muted);
-                text-decoration: none;
-                transition: all 150ms ease;
-            }
-
-            .filter-btn:hover {
-                border-color: var(--border-strong);
-                color: var(--text);
-            }
-
-            .filter-btn[data-active="true"] {
-                background: var(--brand);
-                color: var(--bg);
-                border-color: var(--brand);
-            }
-
-            .empty-state {
-                display: grid;
-                place-items: center;
-                text-align: center;
-                padding: 64px 24px;
-                color: var(--text-muted);
-            }
-
-            .empty-icon {
-                font-size: 3rem;
-                margin-bottom: 16px;
-            }
-
-            .empty-state h2 {
-                font-size: 1.25rem;
-                color: var(--text);
-                margin-bottom: 8px;
-            }
-
-            .history-list {
-                display: grid;
-                gap: 12px;
-            }
-
-            .history-item {
-                display: flex;
-                align-items: center;
-                gap: 16px;
-                padding: 12px 16px;
-                border: 1px solid var(--border);
-                border-radius: var(--radius-md);
-                background: var(--surface);
-                transition: border-color 150ms ease, background 150ms ease;
-            }
-
-            .history-item:hover {
-                background: var(--surface-hover);
-                border-color: var(--border-strong);
-            }
-
-            .history-platform-badge {
-                flex-shrink: 0;
-                display: grid;
-                place-items: center;
-                width: 36px;
-                height: 36px;
-                border-radius: var(--radius-sm);
-                font-size: 0.65rem;
-                font-weight: 800;
-            }
-
-            .history-main {
-                flex: 1;
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-            }
-
-            .history-name {
-                font-size: 0.9rem;
-                font-weight: 600;
-                margin: 0;
-            }
-
-            .history-name a {
-                color: var(--text);
-                text-decoration: none;
-                transition: color 150ms ease;
-            }
-
-            .history-name a:hover {
-                color: var(--brand);
-                text-decoration: underline;
-                text-underline-offset: 3px;
-            }
-
-            .history-meta {
-                font-size: 0.75rem;
-                color: var(--text-dim);
-            }
-
-            .history-status {
-                font-size: 0.75rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-            }
-
-            @media (max-width: 768px) {
-                .filter-controls {
-                    flex-direction: column;
-                    align-items: flex-start;
-                    gap: 8px;
-                }
-
-                .filter-buttons {
-                    width: 100%;
-                    overflow-x: auto;
-                    padding-bottom: 4px;
-                }
-            }
-        </style>
-    </body>
-</html>
+    .history-item .contest-when {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 8px;
+    }
+  }
+</style>

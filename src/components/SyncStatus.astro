@@ -11,89 +11,35 @@ const syncState = Astro.props.syncState ?? getSyncState();
 function formatTimeAgo(date: Date | null): string {
   if (!date) return "never";
 
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
   const diffHour = Math.floor(diffMin / 60);
   const diffDay = Math.floor(diffHour / 24);
 
-  if (diffSec < 60) return "just now";
+  if (diffMs < 60_000) return "just now";
   if (diffMin < 60) return `${diffMin}m ago`;
   if (diffHour < 24) return `${diffHour}h ago`;
   if (diffDay < 7) return `${diffDay}d ago`;
 
-  return date.toLocaleDateString("en-IN", {
-    month: "short",
-    day: "numeric",
-  });
+  return date.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 }
 
-const timeAgo = formatTimeAgo(syncState.completedAt);
 const isError = syncState.status === "error";
 const isSyncing = syncState.status === "syncing";
 const neverSynced = syncState.completedAt === null && !isSyncing;
+
+const label = isSyncing
+  ? "Syncing"
+  : isError
+    ? "Sync failed"
+    : neverSynced
+      ? "Not synced"
+      : `Synced ${formatTimeAgo(syncState.completedAt)}`;
+
+const state = isError || neverSynced ? "warning" : isSyncing ? "syncing" : "ok";
 ---
 
-<div class="sync-status" class:list={[{ syncing: isSyncing, error: isError, neverSynced }]}>
-  {isSyncing && <span class="sync-dot"></span>}
-  {!isSyncing && !isError && !neverSynced && <span class="sync-dot"></span>}
-  {(isError || neverSynced) && <span class="sync-dot warning"></span>}
-
-  <span class="sync-label">
-    {isSyncing && "Syncing..."}
-    {!isSyncing && !isError && !neverSynced && `Synced ${timeAgo}`}
-    {neverSynced && "Not synced"}
-    {isError && "Sync failed"}
-  </span>
+<div class:list={["sync-status", { syncing: isSyncing }]} title={label}>
+  <span class:list={["sync-dot", { warning: state === "warning" }]}></span>
+  <span>{label}</span>
 </div>
-
-<style>
-  .sync-status {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
-  }
-
-  .sync-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--brand);
-    flex-shrink: 0;
-    transition: background 200ms ease;
-  }
-
-  .sync-dot.error,
-  .sync-dot.warning {
-    background: var(--danger);
-  }
-
-  .sync-status.syncing .sync-dot {
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
-  @keyframes pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.5;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .sync-status.syncing .sync-dot {
-      animation: none;
-    }
-  }
-
-  .sync-label {
-    color: var(--text-muted);
-  }
-</style>

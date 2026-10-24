@@ -3,143 +3,121 @@ import { PLATFORM_LABELS } from "../lib/calendar/ics";
 import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
 
 const feeds = [
-  { href: "/calendar.ics", label: "All platforms" },
+  { path: "/calendar.ics", label: "All platforms" },
   ...SUPPORTED_PLATFORMS.map((platform) => ({
-    href: `/calendar/${platform}.ics`,
+    path: `/calendar/${platform}.ics`,
     label: PLATFORM_LABELS[platform],
   })),
 ];
 ---
 
-<section class="subscribe">
-    <div class="section-heading">
-        <h2>Subscribe</h2>
-        <span>iCalendar</span>
-    </div>
+<section class="card">
+  <h2 class="card-title">Calendar feeds</h2>
 
-    <p class="subscribe-intro">
-        Add a live feed to Google Calendar, Apple Calendar, or Outlook. Feeds
-        refresh whenever the site is rebuilt.
-    </p>
+  <p class="lead">
+    Subscribe once. Google, Apple, and Outlook refresh the feed whenever the
+    site is rebuilt.
+  </p>
 
-    <ul class="feed-list">
-        {feeds.map((feed) => (
-            <li class="feed">
-                <a class="feed-link" href={feed.href}>{feed.label}</a>
-                <button class="feed-copy" type="button" data-copy={feed.href}>
-                    Copy URL
-                </button>
-            </li>
-        ))}
-    </ul>
+  <ul class="feeds">
+    {feeds.map((feed) => (
+      <li class="feed">
+        <a class="feed-name" href={feed.path}>{feed.label}</a>
+        <button class="btn btn-ghost feed-copy" type="button" data-copy={feed.path}>
+          Copy
+        </button>
+      </li>
+    ))}
+  </ul>
 
-    <p class="subscribe-hint">
-        Google Calendar: <em>Other calendars → From URL</em>. Apple Calendar:
-        <em>File → New Calendar Subscription</em>.
-    </p>
+  <p class="hint">
+    Google Calendar: <span>Other calendars → From URL</span>. Apple Calendar:
+    <span>File → New Calendar Subscription</span>.
+  </p>
 </section>
 
 <script>
-    document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((button) => {
-        const original = button.textContent ?? "Copy URL";
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-copy]")
+    .forEach((button) => {
+      const original = button.textContent ?? "Copy";
 
-        button.addEventListener("click", async () => {
-            const path = button.dataset.copy;
+      button.addEventListener("click", async () => {
+        const path = button.dataset.copy;
+        if (!path) return;
 
-            if (!path) {
-                return;
-            }
+        const url = new URL(path, window.location.origin).toString();
 
-            const url = new URL(path, window.location.origin).toString();
+        try {
+          await navigator.clipboard.writeText(url);
+          button.textContent = "Copied";
+        } catch {
+          button.textContent = "Copy failed";
+        }
 
-            try {
-                await navigator.clipboard.writeText(url);
-                button.textContent = "Copied";
-            } catch {
-                button.textContent = url;
-            }
-
-            window.setTimeout(() => {
-                button.textContent = original;
-            }, 1500);
-        });
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1500);
+      });
     });
 </script>
 
 <style>
-    .subscribe {
-        margin-bottom: 40px;
-        padding: 20px;
-        background: var(--surface);
-        border: 1px solid var(--border-subtle);
-        border-radius: var(--radius-lg);
-    }
+  .lead {
+    margin: 0 0 12px;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
 
-    .subscribe .section-heading {
-        margin-bottom: 12px;
-    }
+  .feeds {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
 
-    .subscribe-intro {
-        margin: 0 0 16px;
-        color: var(--text-muted);
-        font-size: 0.85rem;
-        line-height: 1.5;
-    }
+  .feed {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 4px 2px 10px;
+    background: var(--surface-elevated);
+  }
 
-    .feed-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin: 0 0 12px;
-        padding: 0;
-        list-style: none;
-    }
+  .feed-name {
+    flex: 1;
+    padding: 6px 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: none;
+  }
 
-    .feed {
-        display: flex;
-        align-items: stretch;
-        overflow: hidden;
-        background: var(--surface-elevated);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-sm);
-    }
+  .feed-name:hover {
+    color: var(--brand);
+  }
 
-    .feed-link {
-        padding: 8px 12px;
-        color: var(--text);
-        font-size: 0.8rem;
-        font-weight: 500;
-        text-decoration: none;
-    }
+  .feed-copy {
+    height: 24px;
+    padding: 0 8px;
+    font-size: 0.75rem;
+  }
 
-    .feed-link:hover {
-        background: var(--surface-hover);
-    }
+  .hint {
+    margin: 0;
+    font-size: 0.6875rem;
+    line-height: 1.6;
+    color: var(--text-dim);
+  }
 
-    .feed-copy {
-        padding: 8px 12px;
-        color: var(--text-dim);
-        font-family: inherit;
-        font-size: 0.75rem;
-        background: transparent;
-        border: 0;
-        border-left: 1px solid var(--border);
-        cursor: pointer;
-    }
-
-    .feed-copy:hover {
-        color: var(--text);
-        background: var(--surface-hover);
-    }
-
-    .subscribe-hint {
-        margin: 0;
-        color: var(--text-dim);
-        font-size: 0.75rem;
-    }
-
-    .subscribe-hint em {
-        color: var(--text-muted);
-        font-style: normal;
-    }
+  .hint span {
+    color: var(--text-muted);
+  }
 </style>

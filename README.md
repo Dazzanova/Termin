@@ -69,7 +69,7 @@ host.
 - **Apple Calendar**: File → New Calendar Subscription → paste the feed URL.
 - **Outlook**: Add calendar → Subscribe from web → paste the feed URL.
 
-The dashboard's **Subscribe** card copies the absolute URL for you. Feeds are
+The dashboard's **Calendar feeds** card copies the absolute URL for you. Feeds are
 regenerated on each build, so a deployed feed is as fresh as the last deploy.
 
 ## Scripts

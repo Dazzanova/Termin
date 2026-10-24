@@ -1,137 +1,158 @@
 ---
-import "../styles/global.css";
+import Layout from "../components/Layout.astro";
 import ContestCard from "../components/ContestCard.astro";
 import ContestHero from "../components/ContestHero.astro";
-import SyncStatus from "../components/SyncStatus.astro";
 import SubscribeCard from "../components/SubscribeCard.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
-import { getSyncState } from "../lib/contests/sync-state";
-import type { Contest } from "../lib/contests/types";
+import type { Contest, ContestPlatform } from "../lib/contests/types";
 
 const contests = getUpcomingContests();
-const syncState = getSyncState();
 const nextContest = contests.length > 0 ? contests[0] : null;
 
+const PLATFORM_NAMES: Record<ContestPlatform, string> = {
+  codeforces: "Codeforces",
+  atcoder: "AtCoder",
+  codechef: "CodeChef",
+  leetcode: "LeetCode",
+};
+
+const MONOGRAMS: Record<ContestPlatform, string> = {
+  codeforces: "CF",
+  atcoder: "AT",
+  codechef: "CC",
+  leetcode: "LC",
+};
+
 function dayLabel(date: Date, now: Date): string {
-    const startOfToday = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate(),
-    );
-    const startOfDay = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-    );
-    const diffDays = Math.round(
-        (startOfDay.getTime() - startOfToday.getTime()) / 86_400_000,
-    );
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.round(
+    (startOfDay.getTime() - startOfToday.getTime()) / 86_400_000
+  );
 
-    if (diffDays === 0) return "Today";
-    if (diffDays === 1) return "Tomorrow";
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Tomorrow";
 
-    return date.toLocaleDateString("en-IN", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-    });
+  return date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 }
 
 const now = new Date();
-
 const groups: { label: string; contests: Contest[] }[] = [];
 
 for (const contest of contests) {
-    const label = dayLabel(contest.startTime, now);
-    const existing = groups.find((group) => group.label === label);
+  const label = dayLabel(contest.startTime, now);
+  const existing = groups.find((group) => group.label === label);
 
-    if (existing) {
-        existing.contests.push(contest);
-    } else {
-        groups.push({ label, contests: [contest] });
-    }
+  if (existing) {
+    existing.contests.push(contest);
+  } else {
+    groups.push({ label, contests: [contest] });
+  }
 }
+
+const coverage = (Object.keys(PLATFORM_NAMES) as ContestPlatform[])
+  .map((platform) => ({
+    platform,
+    name: PLATFORM_NAMES[platform],
+    monogram: MONOGRAMS[platform],
+    count: contests.filter((contest) => contest.platform === platform).length,
+  }))
+  .filter((entry) => entry.count > 0);
 ---
 
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width" />
-        <meta
-            name="description"
-            content="Your friendly competitive programming contest reminder."
-        />
-        <title>Termin</title>
-    </head>
+<Layout
+  title="Termin — Contest dashboard"
+  active="contests"
+  description="Every upcoming competitive programming contest in one place."
+>
+  <div class="page-head">
+    <div>
+      <h1>Contests</h1>
+      <p class="subtitle">
+        {contests.length} upcoming
+        {coverage.length > 0 && ` across ${coverage.length} platforms`}
+      </p>
+    </div>
+  </div>
 
-    <body>
-        <main>
-            <header class="site-header">
-                <div>
-                    <p class="eyebrow">COMPETITIVE PROGRAMMING</p>
-                    <h1>Termin</h1>
-                    <p class="subtitle">Your friendly contest reminder.</p>
-                </div>
+  {nextContest && <ContestHero contest={nextContest} />}
 
-                <div class="header-info">
-                    <SyncStatus syncState={syncState} />
-                    <div class="header-count">{contests.length} upcoming</div>
-                    <div class="nav-links">
-                        <a href="/planning" class="settings-link">
-                            Planning
-                        </a>
-                        <a href="/settings" class="settings-link">
-                            Settings
-                        </a>
-                    </div>
-                </div>
-            </header>
+  <section>
+    <div class="section-heading">
+      <h2>Upcoming</h2>
+      <span>{contests.length} total</span>
+    </div>
 
-            {nextContest && (
-                <ContestHero contest={nextContest} />
-            )}
+    {contests.length === 0 ? (
+      <div class="empty-state">
+        <h3>No upcoming contests</h3>
+        <p>
+          Fetch the current schedule with <code>npm run sync</code>, then reload.
+        </p>
+      </div>
+    ) : (
+      groups.map((group) => (
+        <div class="day-group">
+          <p class="day-label">{group.label}</p>
+          <div class="contest-list">
+            {group.contests.map((contest) => (
+              <ContestCard contest={contest} showDate={false} />
+            ))}
+          </div>
+        </div>
+      ))
+    )}
+  </section>
 
-            <SubscribeCard />
+  <div slot="rail">
+    <SubscribeCard />
 
-            <section>
-                <div class="section-heading">
-                    <h2>Upcoming contests</h2>
-                    <span>{contests.length} total</span>
-                </div>
-
-                {groups.map((group) => (
-                    <div class="day-group">
-                        <p class="day-label">{group.label}</p>
-
-                        <div class="contest-list">
-                            {group.contests.map((contest) => (
-                                <ContestCard contest={contest} />
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </section>
-        </main>
-    </body>
-</html>
+    {coverage.length > 0 && (
+      <section class="card">
+        <h2 class="card-title">Coverage</h2>
+        <ul class="coverage">
+          {coverage.map((entry) => (
+            <li>
+              <span class="chip chip-mono">{entry.monogram}</span>
+              <span class="coverage-name">{entry.name}</span>
+              <span class="coverage-count">{entry.count}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+  </div>
+</Layout>
 
 <style>
-    .settings-link {
-        color: var(--text-muted);
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-decoration: none;
-        transition: color 150ms ease;
-    }
+  .coverage {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
 
-    .settings-link:hover {
-        color: var(--text);
-        text-decoration: underline;
-        text-underline-offset: 4px;
-    }
+  .coverage li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8125rem;
+  }
 
-    .nav-links {
-        display: flex;
-        gap: 14px;
-    }
+  .coverage-name {
+    flex: 1;
+    color: var(--text-secondary);
+  }
+
+  .coverage-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8125rem;
+    color: var(--text-dim);
+  }
 </style>

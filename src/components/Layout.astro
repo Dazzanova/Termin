@@ -1,0 +1,91 @@
+---
+import "../styles/global.css";
+import SyncStatus from "./SyncStatus.astro";
+
+interface Props {
+  title: string;
+  active: "contests" | "planning" | "history" | "settings";
+  description?: string;
+}
+
+const { title, active, description } = Astro.props;
+
+const nav = [
+  { href: "/", label: "Contests", key: "contests" },
+  { href: "/planning", label: "Planning", key: "planning" },
+  { href: "/history", label: "History", key: "history" },
+  { href: "/settings", label: "Settings", key: "settings" },
+] as const;
+
+const hasRail = Astro.slots.has("rail");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta
+      name="description"
+      content={description ?? "Competitive programming contest dashboard."}
+    />
+    <title>{title}</title>
+  </head>
+
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <circle
+              cx="8"
+              cy="8"
+              r="6.25"
+              stroke="currentColor"
+              stroke-width="1.5"></circle>
+            <path
+              d="M8 4.75V8.25L10.25 9.75"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"></path>
+          </svg>
+          Termin
+        </a>
+
+        <nav class="nav" aria-label="Primary">
+          {nav.map((item) => (
+            <a
+              href={item.href}
+              aria-current={active === item.key ? "page" : undefined}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+
+        <div class="topbar-status">
+          <SyncStatus />
+        </div>
+      </div>
+    </header>
+
+    <main class="page">
+      <div class="col-main">
+        <slot />
+      </div>
+
+      {hasRail && (
+        <aside class="col-rail">
+          <slot name="rail" />
+        </aside>
+      )}
+    </main>
+  </body>
+</html>
