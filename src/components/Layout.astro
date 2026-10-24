@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import SyncButton from "./SyncButton.astro";
 import SyncStatus from "./SyncStatus.astro";
 
 interface Props {
@@ -70,8 +71,9 @@ const hasRail = Astro.slots.has("rail");
           ))}
         </nav>
 
-        <div class="topbar-status">
+        <div class="topbar-actions">
           <SyncStatus />
+          <SyncButton />
         </div>
       </div>
     </header>

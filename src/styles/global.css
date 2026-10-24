@@ -175,8 +175,27 @@ a {
   background: var(--surface-elevated);
 }
 
-.topbar-status {
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-shrink: 0;
+}
+
+.sync-button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .topbar-inner {
+    gap: 16px;
+  }
+
+  .sync-status .sync-label {
+    display: none;
+  }
 }
 
 .page {
@@ -307,6 +326,11 @@ a {
 .btn:hover {
   background: var(--surface-hover);
   border-color: var(--border-strong);
+}
+
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .btn-primary {
@@ -699,6 +723,11 @@ a {
   color: var(--text);
   font-size: 0.8125rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.toast-error {
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
 }
 
 .pulse-once {

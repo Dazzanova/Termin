@@ -24,6 +24,7 @@ No account, no server, no telemetry — your data stays in `.data/termin.db`.
 | Resilient sync — one failing provider never wipes the others | ✅ |
 | Rejects invalid provider payloads instead of storing them | ✅ |
 | Detects schedule changes between syncs | ✅ |
+| Re-sync from the dashboard with the toolbar button | ✅ |
 | Personal preferences: platforms, weekly cap, preferred days and hours | ✅ |
 | Weekly planning with recommendations and conflict detection | ✅ |
 | Participation history and behavioural insights | ✅ |
@@ -44,9 +45,10 @@ npm run dev    # http://localhost:4321
 ```
 
 `npm run dev` is the full app: syncing, preferences, participation tracking, and
-the calendar feeds all work. A production build (`npm run build`) is a read-only
-snapshot, because the write endpoints only exist in the dev server. See
-[Limitations](#limitations).
+the calendar feeds all work. The **Sync** button in the toolbar re-fetches
+contests without leaving the page. A production build (`npm run build`) is a
+read-only snapshot, because the write endpoints only exist in the dev server.
+See [Limitations](#limitations).
 
 ## Calendar subscriptions
 
@@ -115,8 +117,9 @@ local time zone.
 ## Limitations
 
 - The write endpoints (`/api/preferences`, `/api/participation`,
-  `/api/planning`) only run in the dev server. A static build is read-only, so
-  preferences and participation tracking are disabled there.
+  `/api/planning`, `/api/sync`) only run in the dev server. A static build is
+  read-only, so preferences, participation tracking, and the **Sync** button are
+  disabled there.
 - Reminders are scheduled and stored, but no delivery channel is implemented
   yet. See the roadmap.
 - Migrations are forward-only. If a pre-1.0 database is incompatible, delete

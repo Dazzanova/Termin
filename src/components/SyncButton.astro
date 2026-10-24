@@ -1,0 +1,67 @@
+---
+interface Props {
+  label?: string;
+}
+
+const { label = "Sync" } = Astro.props;
+---
+
+<button
+  id="sync-button"
+  class="btn sync-button"
+  type="button"
+  aria-label="Sync contests"
+>
+  {label}
+</button>
+
+<script>
+  import { showToast } from "../lib/ui/toast";
+
+  const button = document.getElementById(
+    "sync-button"
+  ) as HTMLButtonElement | null;
+
+  button?.addEventListener("click", async () => {
+    const original = button.textContent ?? "Sync";
+
+    button.disabled = true;
+    button.textContent = "Syncing…";
+
+    try {
+      const response = await fetch("/api/sync", { method: "POST" });
+
+      if (response.status === 404) {
+        showToast("Sync needs the dev server (npm run dev)", "error");
+        return;
+      }
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 409) {
+        showToast("A sync is already running", "error");
+        return;
+      }
+
+      if (!response.ok) {
+        showToast(data.error ?? "Sync failed", "error");
+        return;
+      }
+
+      const failed: string[] = data.failedProviders ?? [];
+
+      if (failed.length > 0) {
+        showToast(`Synced ${data.synced} · ${failed.join(", ")} failed`, "error");
+        window.setTimeout(() => window.location.reload(), 1600);
+        return;
+      }
+
+      window.location.reload();
+    } catch {
+      showToast("Could not reach the server", "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
+  });
+</script>

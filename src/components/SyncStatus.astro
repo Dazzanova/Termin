@@ -41,5 +41,5 @@ const state = isError || neverSynced ? "warning" : isSyncing ? "syncing" : "ok";
 
 <div class:list={["sync-status", { syncing: isSyncing }]} title={label}>
   <span class:list={["sync-dot", { warning: state === "warning" }]}></span>
-  <span>{label}</span>
+  <span class="sync-label">{label}</span>
 </div>

@@ -103,18 +103,12 @@ const duration = `${hours}h ${String(minutes).padStart(2, "0")}m`;
 </article>
 
 <script>
+  import { showToast } from "../lib/ui/toast";
+
   type Urgency = "far" | "soon" | "critical" | "live";
 
   function pad(value: number) {
     return String(value).padStart(2, "0");
-  }
-
-  function showToast(message: string) {
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    window.setTimeout(() => toast.remove(), 3000);
   }
 
   async function updateParticipation(
@@ -138,7 +132,8 @@ const duration = `${hours}h ${String(minutes).padStart(2, "0")}m`;
     } catch (error) {
       selectEl.value = previousValue;
       showToast(
-        error instanceof Error ? error.message : "Could not update status"
+        error instanceof Error ? error.message : "Could not update status",
+        "error"
       );
     }
   }
