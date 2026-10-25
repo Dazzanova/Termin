@@ -31,6 +31,7 @@ No account, no server, no telemetry — your data stays in `.data/termin.db`.
 | Codeforces handle import: catalog + submission history | ✅ |
 | Upsolve queue with spaced review (1 → 3 → 7 → 21 days) | ✅ |
 | Weakness profile, rating chart, and practice suggestions | ✅ |
+| Beginner contest guide and C++ starter packs | ✅ |
 | iCalendar feeds per platform and combined | ✅ |
 | Reminder delivery (push, email, Discord) | 🚧 roadmap |
 | Hosted multi-user version | 🚧 roadmap |
@@ -95,6 +96,19 @@ back to the upper range of problems they have solved.
 Only Codeforces is importable today; the schema is keyed by platform so other
 providers can follow. Your handle is only sent to Codeforces, and the imported
 catalog stays in your local SQLite file.
+
+## Beginner guide and starter packs
+
+`/learn` is a short playbook for a first contest — before, during, and after —
+plus a table of what Codeforces, AtCoder, CodeChef, and LeetCode each expect.
+
+Below it, every upcoming contest gets a C++17 **starter pack**: one file per
+problem, with fast IO and a `TODO`. **Save to folder** asks for a directory and
+writes the files straight into it (Chrome and Edge); the `.zip` link does the
+same job everywhere else, unpacking into a single named folder. Codeforces
+packs use the real problem letters, names, and links when that contest is in
+your imported catalog; other platforms use the letters their contests usually
+ask for.
 
 ## Calendar subscriptions
 
