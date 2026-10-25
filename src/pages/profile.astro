@@ -1,0 +1,623 @@
+---
+import Layout from "../components/Layout.astro";
+import {
+  getAccount,
+  getReviewCounts,
+  listProblems,
+  listRatingHistory,
+  listReviews,
+  listSubmissions,
+} from "../lib/training/repository";
+import {
+  buildRatingSummary,
+  buildSuggestions,
+  buildWeaknessProfile,
+  DISPLAY_TAGS,
+  MIN_TAG_SAMPLE,
+  resolveAnchor,
+} from "../lib/training/profile";
+
+const account = getAccount("codeforces");
+const problems = listProblems("codeforces");
+const submissions = listSubmissions("codeforces");
+const ratingRows = listRatingHistory("codeforces");
+const counts = getReviewCounts();
+const tracked = new Set(listReviews().map((entry) => entry.problem.id));
+
+const rating = buildRatingSummary(ratingRows);
+const weakTags = buildWeaknessProfile(problems, submissions);
+const anchor = resolveAnchor({
+  currentRating: rating.current,
+  problems,
+  submissions,
+});
+const suggestions = buildSuggestions({
+  problems,
+  submissions,
+  trackedProblemIds: tracked,
+  weakTags,
+  anchor: anchor.value,
+});
+
+const CHART_WIDTH = 560;
+const CHART_HEIGHT = 120;
+const chartMin =
+  rating.series.length > 0
+    ? Math.min(...rating.series.map((point) => point.newRating))
+    : 0;
+const chartMax =
+  rating.series.length > 0
+    ? Math.max(...rating.series.map((point) => point.newRating))
+    : 0;
+const chartPoints = rating.series.map((point, index) => {
+  const ratio =
+    chartMax === chartMin
+      ? 0.5
+      : (point.newRating - chartMin) / (chartMax - chartMin);
+  const x =
+    rating.series.length === 1
+      ? CHART_WIDTH / 2
+      : (index / (rating.series.length - 1)) * CHART_WIDTH;
+
+  return {
+    ...point,
+    x,
+    y: CHART_HEIGHT - 10 - ratio * (CHART_HEIGHT - 20),
+  };
+});
+
+const anchorLabel =
+  anchor.source === "solved" && anchor.value !== null
+    ? `No rated contests yet. Suggestions use ${anchor.value}, the upper range of problems you have solved.`
+    : "No rated contests yet, and no solved problems with a rating to anchor on.";
+---
+
+<Layout
+  title="Profile — Termin"
+  active="profile"
+  description="Your Codeforces rating, weak tags, and what to practice next."
+>
+  <div class="page-head">
+    <div>
+      <h1>Profile</h1>
+      <p class="subtitle">
+        What your Codeforces record says to practice next.
+      </p>
+    </div>
+
+    <div class="profile-chips">
+      {rating.current !== null && (
+        <span class="chip chip-mono">{rating.current}</span>
+      )}
+      <span class="chip chip-warning" data-due-count={counts.due}>
+        {counts.due} due
+      </span>
+    </div>
+  </div>
+
+  {!account ? (
+    <section class="empty-state">
+      <h3>Link a Codeforces handle</h3>
+      <p>
+        The profile is built from your submission and rating history. Link a
+        handle and import once to see it here.
+      </p>
+      <a class="btn btn-primary empty-action" href="/settings">
+        Open settings
+      </a>
+    </section>
+  ) : problems.length === 0 ? (
+    <section class="empty-state">
+      <h3>No catalog yet</h3>
+      <p>
+        The handle <strong>{account.handle}</strong> is linked, but nothing has
+        been imported. Run an import from settings.
+      </p>
+      <a class="btn btn-primary empty-action" href="/settings">Import now</a>
+    </section>
+  ) : (
+    <>
+      <section class="card rating-card">
+        <div class="rating-head">
+          <div class="rating-current">
+            <span class="rating-label">Current rating</span>
+            <span class="rating-value">{rating.current ?? "—"}</span>
+          </div>
+
+          <div class="rating-facts">
+            {rating.peak !== null && (
+              <span>
+                Peak <strong>{rating.peak}</strong>
+              </span>
+            )}
+            <span>
+              {rating.contests} rated{" "}
+              {rating.contests === 1 ? "contest" : "contests"}
+            </span>
+            {rating.lastDelta !== null && (
+              <span
+                class:list={[
+                  "rating-delta",
+                  rating.lastDelta >= 0 ? "up" : "down",
+                ]}
+              >
+                {rating.lastDelta >= 0 ? "+" : ""}
+                {rating.lastDelta} last
+              </span>
+            )}
+          </div>
+        </div>
+
+        {rating.series.length > 0 ? (
+          <svg
+            class="rating-chart"
+            viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+            role="img"
+            aria-label={`Rating history from ${chartMin} to ${chartMax} across ${rating.contests} rated contests`}
+          >
+            {chartPoints.length > 1 && (
+              <polyline
+                points={chartPoints
+                  .map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+                  .join(" ")}
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linejoin="round"
+              />
+            )}
+
+            {chartPoints.map((point) => (
+              <circle
+                cx={point.x.toFixed(1)}
+                cy={point.y.toFixed(1)}
+                r="3"
+                fill="currentColor"
+              >
+                <title>
+                  {`${point.contestName} — ${point.newRating} (${
+                    point.delta >= 0 ? "+" : ""
+                  }${point.delta})`}
+                </title>
+              </circle>
+            ))}
+          </svg>
+        ) : (
+          <p class="rating-note">{anchorLabel}</p>
+        )}
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Weak spots</h2>
+          <span>{weakTags.length} tags</span>
+        </div>
+
+        {weakTags.length === 0 ? (
+          <div class="empty-state">
+            <h3>Not enough data yet</h3>
+            <p>
+              A tag needs at least {MIN_TAG_SAMPLE} attempted problems before
+              it can rank. Import again after a few more problems or contests.
+            </p>
+          </div>
+        ) : (
+          <ul class="weak-list">
+            {weakTags.slice(0, DISPLAY_TAGS).map((tag) => (
+              <li class="weak-row">
+                <div class="weak-main">
+                  <span class="weak-tag">{tag.tag}</span>
+                  <span class="weak-count">
+                    {tag.solved}/{tag.attempted} solved
+                  </span>
+                </div>
+
+                <div
+                  class="weak-bar"
+                  role="img"
+                  aria-label={`${Math.round(tag.solveRate * 100)} percent of attempted problems solved`}
+                >
+                  <span
+                    class:list={["weak-fill", { low: tag.solveRate < 0.5 }]}
+                    style={`width: ${(tag.solveRate * 100).toFixed(1)}%`}
+                  />
+                </div>
+
+                <div class="weak-side">
+                  <span class="weak-rate">
+                    {Math.round(tag.solveRate * 100)}%
+                  </span>
+                  <span class="weak-median">
+                    {tag.medianSolvedRating !== null
+                      ? Math.round(tag.medianSolvedRating)
+                      : "—"}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p class="footnote">
+          Ranked by solve rate, then the median rating you solve in that tag.
+          Tags need at least {MIN_TAG_SAMPLE} attempts.
+        </p>
+      </section>
+
+      <section>
+        <div class="section-heading">
+          <h2>Suggested for you</h2>
+          <span>{suggestions.length}</span>
+        </div>
+
+        {suggestions.length === 0 ? (
+          <div class="empty-state">
+            <h3>No suggestions right now</h3>
+            <p>
+              {anchor.value === null
+                ? "Solve a few rated problems first so Termin has something to anchor on."
+                : "Every untried problem in this band is already queued or outside your weak tags. Import again after your next contest."}
+            </p>
+            <a class="btn btn-primary empty-action" href="/settings">
+              Open settings
+            </a>
+          </div>
+        ) : (
+          <ul class="suggestions">
+            {suggestions.map((entry) => (
+              <li class="suggestion" data-problem={entry.problem.id}>
+                <div class="suggestion-main">
+                  <a
+                    class="suggestion-name"
+                    href={entry.problem.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {entry.problem.name}
+                    <span class="external-link" aria-hidden="true">↗</span>
+                  </a>
+
+                  <div class="suggestion-meta">
+                    <span class="suggestion-rating">
+                      {entry.problem.rating}
+                    </span>
+                    <span class="chip">{entry.tag}</span>
+                    <span class="suggestion-index">
+                      {entry.problem.index}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  class="btn btn-ghost btn-sm"
+                  type="button"
+                  data-queue={entry.problem.id}
+                  data-url={entry.problem.url}
+                >
+                  Open &amp; queue
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </>
+  )}
+</Layout>
+
+<script>
+  import { showToast } from "../lib/ui/toast";
+
+  const buttons =
+    document.querySelectorAll<HTMLButtonElement>("[data-queue]");
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const problemId = button.dataset.queue;
+      const url = button.dataset.url;
+
+      if (!problemId || !url) {
+        return;
+      }
+
+      // Open synchronously so the click is still a user gesture.
+      window.open(url, "_blank", "noopener,noreferrer");
+      button.disabled = true;
+
+      try {
+        const response = await fetch("/api/training/queue", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ problemId }),
+        });
+
+        if (response.status === 404) {
+          button.disabled = false;
+          showToast("Queueing needs the dev server (npm run dev)", "error");
+          return;
+        }
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error ?? "Could not queue the problem");
+        }
+
+        button.textContent = "Queued";
+        button.closest(".suggestion")?.classList.add("queued");
+
+        const dueChip = document.querySelector<HTMLElement>(
+          "[data-due-count]"
+        );
+
+        if (dueChip) {
+          const next = Number(dueChip.dataset.dueCount ?? "0") + 1;
+          dueChip.dataset.dueCount = String(next);
+          dueChip.textContent = `${next} due`;
+        }
+
+        showToast("Added to practice");
+      } catch (error) {
+        button.disabled = false;
+        showToast(
+          error instanceof Error
+            ? error.message
+            : "Could not queue the problem",
+          "error"
+        );
+      }
+    });
+  });
+</script>
+
+<style>
+  .profile-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .rating-card {
+    display: grid;
+    gap: 14px;
+  }
+
+  .rating-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .rating-current {
+    display: grid;
+    gap: 2px;
+  }
+
+  .rating-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .rating-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 2rem;
+    line-height: 1.1;
+    color: var(--text);
+  }
+
+  .rating-facts {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .rating-facts strong {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .rating-delta {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .rating-delta.up {
+    color: var(--success);
+  }
+
+  .rating-delta.down {
+    color: var(--warning);
+  }
+
+  .rating-chart {
+    width: 100%;
+    height: 120px;
+    color: var(--brand);
+  }
+
+  .rating-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    max-width: 62ch;
+  }
+
+  .weak-list,
+  .suggestions {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .weak-row {
+    display: grid;
+    grid-template-columns: minmax(0, 200px) 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    background: var(--surface);
+  }
+
+  .weak-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .weak-tag {
+    color: var(--text);
+    font-weight: 550;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .weak-count {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .weak-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--surface-elevated);
+    overflow: hidden;
+  }
+
+  .weak-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--success);
+  }
+
+  .weak-fill.low {
+    background: var(--warning);
+  }
+
+  .weak-side {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    min-width: 8ch;
+    justify-content: flex-end;
+  }
+
+  .weak-median {
+    color: var(--text-dim);
+  }
+
+  .footnote {
+    margin: 10px 2px 0;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  .suggestion {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--surface);
+    transition: opacity 140ms ease;
+  }
+
+  .suggestion.queued {
+    opacity: 0.55;
+  }
+
+  .suggestion-main {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .suggestion-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    font-weight: 550;
+    text-decoration: none;
+  }
+
+  .suggestion-name:hover {
+    color: var(--brand);
+  }
+
+  .suggestion-name .external-link {
+    opacity: 0.45;
+  }
+
+  .suggestion-name:hover .external-link,
+  .suggestion-name:focus-visible .external-link {
+    opacity: 1;
+  }
+
+  .suggestion-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  .suggestion-rating,
+  .suggestion-index {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .btn-sm {
+    height: 26px;
+    padding: 0 8px;
+    font-size: 0.6875rem;
+    flex-shrink: 0;
+  }
+
+  .empty-action {
+    margin-top: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .weak-row {
+      grid-template-columns: 1fr auto;
+    }
+
+    .weak-bar {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+
+    .suggestion {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
