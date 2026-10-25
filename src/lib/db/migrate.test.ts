@@ -26,6 +26,7 @@ describe("runMigrations", () => {
       "001_personalization_preferences.sql",
       "002_contest_priorities.sql",
       "003_training.sql",
+      "004_rating_history.sql",
     ]);
 
     const tables = db
@@ -39,6 +40,7 @@ describe("runMigrations", () => {
     expect(tables).toContain("problems");
     expect(tables).toContain("submissions");
     expect(tables).toContain("problem_reviews");
+    expect(tables).toContain("rating_history");
 
     const columns = db
       .prepare("PRAGMA table_info(preferences)")
@@ -60,7 +62,7 @@ describe("runMigrations", () => {
       .prepare("SELECT COUNT(*) AS count FROM schema_migrations")
       .get() as { count: number };
 
-    expect(count.count).toBe(3);
+    expect(count.count).toBe(4);
   });
 
   it("names the failing migration and leaves the ledger untouched", () => {

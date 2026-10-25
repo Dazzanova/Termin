@@ -3,6 +3,7 @@ import type { Contest } from "../contests/types";
 import type {
   Problem,
   ProblemReview,
+  RatingEntry,
   ReviewAction,
   ReviewEntry,
   ReviewStatus,
@@ -36,6 +37,16 @@ type SubmissionRow = {
   submitted_at: string;
 };
 
+type RatingRow = {
+  platform: TrainingPlatform;
+  contest_id: string;
+  contest_name: string;
+  rank: number | null;
+  old_rating: number;
+  new_rating: number;
+  rated_at: string;
+};
+
 type ReviewRow = {
   problem_id: string;
   status: ReviewStatus;
@@ -65,6 +76,41 @@ const saveAccountStatement = db.prepare(`
   ON CONFLICT(platform) DO UPDATE SET
     handle = excluded.handle,
     linked_at = excluded.linked_at
+`);
+
+const allProblemsStatement = db.prepare(`
+  SELECT id, platform, contest_id, problem_index, name, rating, tags, url
+  FROM problems
+  WHERE platform = ?
+  ORDER BY id ASC
+`);
+
+const allSubmissionsStatement = db.prepare(`
+  SELECT id, platform, problem_id, verdict, submitted_at
+  FROM submissions
+  WHERE platform = ?
+  ORDER BY submitted_at ASC, id ASC
+`);
+
+const deleteRatingHistoryStatement = db.prepare(
+  "DELETE FROM rating_history WHERE platform = ?"
+);
+
+const insertRatingStatement = db.prepare(`
+  INSERT INTO rating_history (
+    platform, contest_id, contest_name, rank, old_rating, new_rating, rated_at
+  )
+  VALUES (
+    @platform, @contest_id, @contest_name, @rank,
+    @old_rating, @new_rating, @rated_at
+  )
+`);
+
+const ratingHistoryStatement = db.prepare(`
+  SELECT platform, contest_id, contest_name, rank, old_rating, new_rating, rated_at
+  FROM rating_history
+  WHERE platform = ?
+  ORDER BY rated_at ASC, contest_id ASC
 `);
 
 const upsertProblemStatement = db.prepare(`
@@ -231,6 +277,28 @@ function rowToReviewEntry(row: ReviewJoinRow): ReviewEntry {
   };
 }
 
+function rowToSubmission(row: SubmissionRow): Submission {
+  return {
+    id: row.id,
+    platform: row.platform,
+    problemId: row.problem_id,
+    verdict: row.verdict,
+    submittedAt: new Date(row.submitted_at),
+  };
+}
+
+function rowToRating(row: RatingRow): RatingEntry {
+  return {
+    platform: row.platform,
+    contestId: row.contest_id,
+    contestName: row.contest_name,
+    rank: row.rank,
+    oldRating: row.old_rating,
+    newRating: row.new_rating,
+    ratedAt: new Date(row.rated_at),
+  };
+}
+
 export function getAccount(
   platform: TrainingPlatform = "codeforces"
 ): TrainingAccount | null {
@@ -250,6 +318,50 @@ export function saveAccount(
   platform: TrainingPlatform = "codeforces"
 ): void {
   saveAccountStatement.run(platform, handle, new Date().toISOString());
+}
+
+export function listProblems(
+  platform: TrainingPlatform = "codeforces"
+): Problem[] {
+  const rows = allProblemsStatement.all(platform) as ProblemRow[];
+  return rows.map(rowToProblem);
+}
+
+export function listSubmissions(
+  platform: TrainingPlatform = "codeforces"
+): Submission[] {
+  const rows = allSubmissionsStatement.all(platform) as SubmissionRow[];
+  return rows.map(rowToSubmission);
+}
+
+export function replaceRatingHistory(
+  entries: RatingEntry[],
+  platform: TrainingPlatform = "codeforces"
+): void {
+  const transaction = db.transaction(() => {
+    deleteRatingHistoryStatement.run(platform);
+
+    for (const entry of entries) {
+      insertRatingStatement.run({
+        platform: entry.platform,
+        contest_id: entry.contestId,
+        contest_name: entry.contestName,
+        rank: entry.rank,
+        old_rating: entry.oldRating,
+        new_rating: entry.newRating,
+        rated_at: entry.ratedAt.toISOString(),
+      });
+    }
+  });
+
+  transaction();
+}
+
+export function listRatingHistory(
+  platform: TrainingPlatform = "codeforces"
+): RatingEntry[] {
+  const rows = ratingHistoryStatement.all(platform) as RatingRow[];
+  return rows.map(rowToRating);
 }
 
 export function countProblems(): number {
