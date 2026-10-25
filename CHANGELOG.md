@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Beginner guide and starter packs.** A new `/learn` page walks through a
+  first contest (before, during, after) and what each of the four platforms
+  expects. Every upcoming contest gets a C++17 starter pack — one file per
+  problem with fast IO — that **Save to folder** writes directly into a
+  directory you pick, with a `.zip` fallback for browsers without the File
+  System Access API.
 - **Weakness profile and practice suggestions.** A third import call reads
   Codeforces rating history. The new `/profile` page shows current and peak
   rating with a chart, ranks tags by solve rate and median solved rating, and
