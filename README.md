@@ -30,6 +30,7 @@ No account, no server, no telemetry — your data stays in `.data/termin.db`.
 | Participation history and behavioural insights | ✅ |
 | Codeforces handle import: catalog + submission history | ✅ |
 | Upsolve queue with spaced review (1 → 3 → 7 → 21 days) | ✅ |
+| Weakness profile, rating chart, and practice suggestions | ✅ |
 | iCalendar feeds per platform and combined | ✅ |
 | Reminder delivery (push, email, Discord) | 🚧 roadmap |
 | Hosted multi-user version | 🚧 roadmap |
@@ -75,14 +76,21 @@ Link a Codeforces handle in [Settings](/settings), or import from the CLI:
 npm run import -- --handle yourhandle
 ```
 
-The import pulls the public problem catalog and your submission history (two
-requests to the keyless Codeforces API), then queues every problem you did not
-solve from contests you marked as **Participated**. Solved problems retire
-themselves on the next import.
+The import pulls the public problem catalog, your submission history, and your
+rating history (three requests to the keyless Codeforces API), then queues
+every problem you did not solve from contests you marked as **Participated**.
+Solved problems retire themselves on the next import.
 
 Practice schedules failures at 1 → 3 → 7 → 21 days. **Again** advances the
 interval, **Solved** closes the problem, **Drop** removes it. The Contests page
 shows the due count in the rail, and `/practice` holds the full queue.
+
+The **Profile** page turns that record into guidance: current and peak rating
+with a chart, weak tags ranked by solve rate and the median rating you solve,
+and five untried problems from your weakest tags between your rating and +200.
+**Open & queue** opens the problem and adds it to the review queue in one step.
+Tags need at least three attempts before they rank, and unrated handles fall
+back to the upper range of problems they have solved.
 
 Only Codeforces is importable today; the schema is keyed by platform so other
 providers can follow. Your handle is only sent to Codeforces, and the imported

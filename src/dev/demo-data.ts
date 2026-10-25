@@ -7,6 +7,7 @@ import type { UserPreferences } from "../lib/preferences/types";
 import type {
   Problem,
   ProblemReview,
+  RatingEntry,
   Submission,
 } from "../lib/training/types";
 
@@ -396,11 +397,121 @@ const TRAINING_REVIEWS: { problemId: string; daysFromNow: number }[] = [
   { problemId: "codeforces:demo-h13C", daysFromNow: 5 },
 ];
 
+/**
+ * Catalog-only problems, not tied to a seeded contest. They give the profile
+ * tags with enough attempts to rank and untried problems to suggest, without
+ * entering the upsolve queue (which only follows attended contests).
+ */
+const TRAINING_EXTRA_PROBLEMS: {
+  index: string;
+  name: string;
+  rating: number;
+  tags: string[];
+}[] = [
+  { index: "1", name: "Coin Change", rating: 1300, tags: ["dp"] },
+  { index: "2", name: "LIS Practice", rating: 1500, tags: ["dp"] },
+  { index: "3", name: "Digit DP", rating: 1600, tags: ["dp"] },
+  { index: "4", name: "Island Count", rating: 1300, tags: ["graphs"] },
+  { index: "5", name: "Bipartite Match", rating: 1500, tags: ["graphs"] },
+  { index: "6", name: "Cycle Detection", rating: 1600, tags: ["graphs"] },
+  { index: "7", name: "Palindrome Check", rating: 1200, tags: ["strings"] },
+  { index: "8", name: "Anagram Groups", rating: 1400, tags: ["strings"] },
+  { index: "9", name: "House Robber", rating: 1550, tags: ["dp"] },
+  { index: "10", name: "Longest Path", rating: 1650, tags: ["graphs"] },
+  { index: "11", name: "Edit Distance", rating: 1700, tags: ["dp"] },
+  { index: "12", name: "Bridges", rating: 1700, tags: ["graphs"] },
+  { index: "13", name: "Knapsack II", rating: 1600, tags: ["dp"] },
+  { index: "14", name: "Tree Diameter", rating: 1600, tags: ["trees"] },
+];
+
+/** dp 1/3, graphs 1/3, strings 1/2: the first two qualify as weak tags. */
+const TRAINING_EXTRA_ATTEMPTS: {
+  index: string;
+  verdict: string;
+  daysAgo: number;
+}[] = [
+  { index: "1", verdict: "OK", daysAgo: 21 },
+  { index: "2", verdict: "WRONG_ANSWER", daysAgo: 18 },
+  { index: "3", verdict: "TIME_LIMIT_EXCEEDED", daysAgo: 16 },
+  { index: "4", verdict: "OK", daysAgo: 15 },
+  { index: "5", verdict: "WRONG_ANSWER", daysAgo: 12 },
+  { index: "6", verdict: "WRONG_ANSWER", daysAgo: 10 },
+  { index: "7", verdict: "OK", daysAgo: 8 },
+  { index: "8", verdict: "WRONG_ANSWER", daysAgo: 6 },
+];
+
+const DEMO_RATING_HISTORY: {
+  contestId: string;
+  contestName: string;
+  rank: number;
+  oldRating: number;
+  newRating: number;
+  daysAgo: number;
+}[] = [
+  {
+    contestId: "demo-r1",
+    contestName: "Codeforces Round 988 (Div. 2)",
+    rank: 2600,
+    oldRating: 1280,
+    newRating: 1324,
+    daysAgo: 200,
+  },
+  {
+    contestId: "demo-r2",
+    contestName: "Codeforces Round 990 (Div. 2)",
+    rank: 2900,
+    oldRating: 1324,
+    newRating: 1298,
+    daysAgo: 170,
+  },
+  {
+    contestId: "demo-r3",
+    contestName: "Codeforces Round 992 (Div. 2)",
+    rank: 2100,
+    oldRating: 1298,
+    newRating: 1366,
+    daysAgo: 140,
+  },
+  {
+    contestId: "demo-r4",
+    contestName: "Educational Round 181",
+    rank: 1800,
+    oldRating: 1366,
+    newRating: 1421,
+    daysAgo: 110,
+  },
+  {
+    contestId: "demo-r5",
+    contestName: "Codeforces Round 996 (Div. 2)",
+    rank: 900,
+    oldRating: 1421,
+    newRating: 1560,
+    daysAgo: 80,
+  },
+  {
+    contestId: "demo-r6",
+    contestName: "Codeforces Round 998 (Div. 2)",
+    rank: 2300,
+    oldRating: 1560,
+    newRating: 1488,
+    daysAgo: 50,
+  },
+  {
+    contestId: "demo-r7",
+    contestName: "Codeforces Round 1001 (Div. 2)",
+    rank: 1700,
+    oldRating: 1488,
+    newRating: 1520,
+    daysAgo: 20,
+  },
+];
+
 export type DemoTraining = {
   handle: string;
   problems: Problem[];
   submissions: Submission[];
   reviews: ProblemReview[];
+  ratings: RatingEntry[];
 };
 
 export type DemoDataset = {
@@ -411,7 +522,7 @@ export type DemoDataset = {
 };
 
 function buildTraining(now: Date): DemoTraining {
-  const problems: Problem[] = TRAINING_PROBLEMS.map((problem) => ({
+  const contestProblems: Problem[] = TRAINING_PROBLEMS.map((problem) => ({
     id: `codeforces:${problem.contestId}${problem.index}`,
     platform: "codeforces",
     contestId: problem.contestId,
@@ -422,14 +533,47 @@ function buildTraining(now: Date): DemoTraining {
     url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
   }));
 
+  const extraProblems: Problem[] = TRAINING_EXTRA_PROBLEMS.map((problem) => ({
+    id: `codeforces:demo-x${problem.index}`,
+    platform: "codeforces",
+    contestId: "demo-x",
+    index: problem.index,
+    name: problem.name,
+    rating: problem.rating,
+    tags: problem.tags,
+    url: `https://codeforces.com/problemset/problem/demo-x/${problem.index}`,
+  }));
+
   // One accepted problem per contest, so the queue is not uniformly unsolved.
-  const solved = problems.filter((problem) => problem.index === "A");
-  const submissions: Submission[] = solved.map((problem, index) => ({
+  const solved = contestProblems.filter((problem) => problem.index === "A");
+  const contestSubmissions: Submission[] = solved.map((problem, index) => ({
     id: `codeforces:demo-submission-${index + 1}`,
     platform: "codeforces",
     problemId: problem.id,
     verdict: "OK",
     submittedAt: new Date(now.getTime() - (index + 2) * 86_400_000),
+  }));
+
+  const extraSubmissions: Submission[] = TRAINING_EXTRA_ATTEMPTS.map(
+    (attempt, index) => ({
+      id: `codeforces:demo-extra-${index + 1}`,
+      platform: "codeforces",
+      problemId: `codeforces:demo-x${attempt.index}`,
+      verdict: attempt.verdict,
+      submittedAt: new Date(
+        now.getTime() - attempt.daysAgo * 86_400_000
+      ),
+    })
+  );
+
+  const ratings: RatingEntry[] = DEMO_RATING_HISTORY.map((entry) => ({
+    platform: "codeforces",
+    contestId: entry.contestId,
+    contestName: entry.contestName,
+    rank: entry.rank,
+    oldRating: entry.oldRating,
+    newRating: entry.newRating,
+    ratedAt: new Date(now.getTime() - entry.daysAgo * 86_400_000),
   }));
 
   const reviews: ProblemReview[] = TRAINING_REVIEWS.map((entry) => {
@@ -445,7 +589,13 @@ function buildTraining(now: Date): DemoTraining {
     };
   });
 
-  return { handle: TRAINING_HANDLE, problems, submissions, reviews };
+  return {
+    handle: TRAINING_HANDLE,
+    problems: [...contestProblems, ...extraProblems],
+    submissions: [...contestSubmissions, ...extraSubmissions],
+    reviews,
+    ratings,
+  };
 }
 
 function futureStart(

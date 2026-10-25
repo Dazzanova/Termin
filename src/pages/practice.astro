@@ -64,7 +64,10 @@ const sections = [
       <h1>Practice</h1>
       <p class="subtitle">
         Problems from contests you joined that still have no accepted
-        submission.
+        submission.{" "}
+        <a class="subtitle-link" href="/profile">
+          Weak spots and suggestions →
+        </a>
       </p>
     </div>
 
@@ -248,6 +251,16 @@ const sections = [
 </script>
 
 <style>
+  .subtitle-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .subtitle-link:hover {
+    color: var(--brand);
+  }
+
   .practice-counts {
     display: flex;
     gap: 6px;

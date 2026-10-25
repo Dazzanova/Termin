@@ -62,6 +62,8 @@ type TrainingImportModule = {
 type TrainingRepositoryModule = {
   saveAccount: (handle: string) => void;
   applyReviewAction: (problemId: string, action: ReviewAction) => unknown | null;
+  getProblem: (problemId: string) => unknown | null;
+  ensureReview: (problemId: string) => boolean;
 };
 
 const PARTICIPATION_STATUSES: (ParticipationStatus | "")[] = [
@@ -228,6 +230,30 @@ export function devWriteApi(): AstroIntegration {
             }
 
             return { status: 200, json: { ok: true, status: review.status } };
+          },
+
+          "/api/training/queue": async ({ body }) => {
+            const { problemId } = parseBody(body);
+
+            if (typeof problemId !== "string" || !problemId) {
+              return { status: 400, json: { error: "Invalid problemId" } };
+            }
+
+            const { getProblem, ensureReview } =
+              await load<TrainingRepositoryModule>(
+                "/src/lib/training/repository.ts"
+              );
+
+            if (!getProblem(problemId)) {
+              return { status: 404, json: { error: "Problem not found" } };
+            }
+
+            const created = ensureReview(problemId);
+
+            return {
+              status: 200,
+              json: { ok: true, alreadyTracked: !created },
+            };
           },
 
           "/api/sync": async () => {

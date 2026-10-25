@@ -1,4 +1,4 @@
-import type { Problem, Submission } from "../training/types";
+import type { Problem, RatingEntry, Submission } from "../training/types";
 
 const API_ROOT = "https://codeforces.com/api";
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -28,11 +28,31 @@ type SubmissionResult = {
   creationTimeSeconds: number;
 }[];
 
+type RatingResult = {
+  contestId: number;
+  contestName: string;
+  handle: string;
+  rank: number;
+  ratingUpdateTimeSeconds: number;
+  oldRating: number;
+  newRating: number;
+}[];
+
 export class CodeforcesError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "CodeforcesError";
   }
+}
+
+const UNRATED_COMMENT = "has not participated in any rated contests";
+
+/** A valid handle with no rated contests is an empty history, not an error. */
+export function isUnratedRatingError(error: unknown): boolean {
+  return (
+    error instanceof CodeforcesError &&
+    error.message.includes(UNRATED_COMMENT)
+  );
 }
 
 let lastRequestAt = 0;
@@ -133,4 +153,31 @@ export async function fetchProblemset(): Promise<Problem[]> {
 export async function fetchSubmissions(handle: string): Promise<Submission[]> {
   const result = await call<SubmissionResult>("user.status", { handle });
   return mapSubmissions(result);
+}
+
+export function mapRatingHistory(result: RatingResult): RatingEntry[] {
+  return result.map((entry) => ({
+    platform: "codeforces",
+    contestId: String(entry.contestId),
+    contestName: entry.contestName,
+    rank: entry.rank,
+    oldRating: entry.oldRating,
+    newRating: entry.newRating,
+    ratedAt: new Date(entry.ratingUpdateTimeSeconds * 1000),
+  }));
+}
+
+export async function fetchRatingHistory(
+  handle: string
+): Promise<RatingEntry[]> {
+  try {
+    const result = await call<RatingResult>("user.rating", { handle });
+    return mapRatingHistory(result);
+  } catch (error) {
+    if (isUnratedRatingError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
 }

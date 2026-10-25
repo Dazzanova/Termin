@@ -1,17 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import db from "../db/database";
 import { saveContests, saveParticipationStatus } from "../contests/repository";
-import { getAccount, countProblems, getReview } from "./repository";
+import {
+  getAccount,
+  countProblems,
+  getReview,
+  listRatingHistory,
+} from "./repository";
 import { importCodeforcesData } from "./import";
 import type { Problem, Submission } from "./types";
 
 vi.mock("../codeforces/client", () => ({
   fetchProblemset: vi.fn(),
   fetchSubmissions: vi.fn(),
+  fetchRatingHistory: vi.fn(),
 }));
 
 import {
   fetchProblemset,
+  fetchRatingHistory,
   fetchSubmissions,
 } from "../codeforces/client";
 
@@ -42,8 +49,19 @@ const SOLVED: Submission = {
   submittedAt: new Date(),
 };
 
+const RATING = {
+  platform: "codeforces" as const,
+  contestId: "1001",
+  contestName: "Codeforces Round 1001 (Div. 2)",
+  rank: 1200,
+  oldRating: 1488,
+  newRating: 1520,
+  ratedAt: new Date("2026-10-01T12:00:00.000Z"),
+};
+
 beforeEach(() => {
   vi.resetAllMocks();
+  db.exec("DELETE FROM rating_history");
   db.exec("DELETE FROM problem_reviews");
   db.exec("DELETE FROM submissions");
   db.exec("DELETE FROM problems");
@@ -54,6 +72,7 @@ beforeEach(() => {
 
   vi.mocked(fetchProblemset).mockResolvedValue([PROBLEM_A, PROBLEM_B]);
   vi.mocked(fetchSubmissions).mockResolvedValue([SOLVED]);
+  vi.mocked(fetchRatingHistory).mockResolvedValue([RATING]);
 
   const contest = {
     id: "1001",
@@ -78,8 +97,11 @@ describe("importCodeforcesData", () => {
     expect(summary.solved).toBe(1);
     expect(summary.queuedReviews).toBe(1);
     expect(summary.closedReviews).toBe(0);
+    expect(summary.ratedContests).toBe(1);
+    expect(summary.currentRating).toBe(1520);
 
     expect(getAccount("codeforces")?.handle).toBe("tourist");
+    expect(listRatingHistory()).toEqual([RATING]);
     expect(getReview(PROBLEM_B.id)?.status).toBe("due");
     expect(getReview(PROBLEM_A.id)).toBeNull();
   });
@@ -95,6 +117,19 @@ describe("importCodeforcesData", () => {
 
     expect(countProblems()).toBe(0);
     expect(getAccount("codeforces")).toBeNull();
+  });
+
+  it("writes nothing when rating history fails", async () => {
+    vi.mocked(fetchRatingHistory).mockRejectedValue(
+      new Error("rating unavailable")
+    );
+
+    await expect(importCodeforcesData("tourist")).rejects.toThrow(
+      "rating unavailable"
+    );
+
+    expect(countProblems()).toBe(0);
+    expect(listRatingHistory()).toEqual([]);
   });
 
   it("refuses to import without a handle", async () => {

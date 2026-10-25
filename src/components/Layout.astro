@@ -6,7 +6,7 @@ import { isDemoMode } from "../lib/demo";
 
 interface Props {
   title: string;
-  active: "contests" | "planning" | "practice" | "history" | "settings";
+  active: "contests" | "planning" | "practice" | "profile" | "history" | "settings";
   description?: string;
 }
 
@@ -16,6 +16,7 @@ const nav = [
   { href: "/", label: "Contests", key: "contests" },
   { href: "/planning", label: "Planning", key: "planning" },
   { href: "/practice", label: "Practice", key: "practice" },
+  { href: "/profile", label: "Profile", key: "profile" },
   { href: "/history", label: "History", key: "history" },
   { href: "/settings", label: "Settings", key: "settings" },
 ] as const;

@@ -23,9 +23,14 @@ try {
     `Imported ${summary.problems} problems and ${summary.submissions} submissions ` +
       `for ${handle ?? account?.handle}.`
   );
+  const rating =
+    summary.currentRating === null
+      ? ""
+      : ` · rating ${summary.currentRating} across ${summary.ratedContests} rated contest(s)`;
+
   console.log(
     `${summary.solved} solved · ${summary.queuedReviews} added to upsolve · ` +
-      `${summary.closedReviews} review(s) closed.`
+      `${summary.closedReviews} review(s) closed${rating}.`
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

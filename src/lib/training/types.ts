@@ -19,6 +19,16 @@ export type Submission = {
   submittedAt: Date;
 };
 
+export type RatingEntry = {
+  platform: TrainingPlatform;
+  contestId: string;
+  contestName: string;
+  rank: number | null;
+  oldRating: number;
+  newRating: number;
+  ratedAt: Date;
+};
+
 export type ReviewStatus = "due" | "scheduled" | "done" | "dropped";
 
 export type ReviewAction = "solved" | "again" | "drop";
@@ -49,5 +59,7 @@ export type ImportSummary = {
   solved: number;
   closedReviews: number;
   queuedReviews: number;
+  ratedContests: number;
+  currentRating: number | null;
   importedAt: Date;
 };

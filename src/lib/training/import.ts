@@ -1,5 +1,6 @@
 import {
   fetchProblemset,
+  fetchRatingHistory,
   fetchSubmissions,
 } from "../codeforces/client";
 import {
@@ -7,6 +8,7 @@ import {
   countSubmissions,
   getAccount,
   getSolvedProblemIds,
+  replaceRatingHistory,
   replaceSubmissions,
   saveAccount,
   saveProblems,
@@ -16,11 +18,12 @@ import { rebuildUpsolveQueue } from "./upsolve";
 import type { ImportSummary } from "./types";
 
 /**
- * Imports the Codeforces catalog and your submission history.
+ * Imports the Codeforces catalog, your submission history, and your rating
+ * history.
  *
- * Both API calls run before anything is written, so a network failure leaves
- * the database untouched. Writes then happen back to back: catalog, history,
- * upsolve queue, import stamp.
+ * All three API calls run before anything is written, so a network failure
+ * leaves the database untouched. Writes then happen back to back: catalog,
+ * history, rating series, upsolve queue, import stamp.
  */
 export async function importCodeforcesData(
   handle?: string,
@@ -35,6 +38,7 @@ export async function importCodeforcesData(
 
   const problems = await fetchProblemset();
   const submissions = await fetchSubmissions(target);
+  const ratings = await fetchRatingHistory(target);
 
   if (account?.handle !== target) {
     saveAccount(target, "codeforces");
@@ -42,6 +46,7 @@ export async function importCodeforcesData(
 
   saveProblems(problems);
   replaceSubmissions(submissions);
+  replaceRatingHistory(ratings);
 
   const { queued, closed } = rebuildUpsolveQueue(now);
 
@@ -54,6 +59,8 @@ export async function importCodeforcesData(
     solved: getSolvedProblemIds("codeforces").size,
     closedReviews: closed,
     queuedReviews: queued,
+    ratedContests: ratings.length,
+    currentRating: ratings.at(-1)?.newRating ?? null,
     importedAt: now,
   };
 }
