@@ -1,12 +1,11 @@
-import type { Contest, ContestPlatform } from "./types";
+import type { Contest } from "./types";
 import type { UserPreferences } from "../preferences/types";
 import { getParticipationStatus, getContestHistory } from "./repository";
 
 export type RecommendationReason =
   | "Matches your preferred platform"
   | "Starts during one of your preferred time windows"
-  | "Fits your remaining weekly capacity"
-  | "Conflicts with another prioritized contest"
+  | "Overlaps a contest you planned"
   | "High historical participation on this platform"
   | "Matches your preferred weekday";
 
@@ -18,10 +17,22 @@ export type Recommendation = {
   priorityLabel: "High" | "Medium" | "Low" | "None";
 };
 
+/**
+ * A contest counts as planned when its participation status is "planned".
+ * That single signal drives the score boost, conflict detection, and the
+ * weekly capacity meter.
+ */
+function getPlannedContestIds(contests: Contest[]): Set<string> {
+  return new Set(
+    contests
+      .filter((contest) => getParticipationStatus(contest.id) === "planned")
+      .map((contest) => contest.id)
+  );
+}
+
 export function calculateRecommendations(
   contests: Contest[],
-  preferences: UserPreferences,
-  prioritizedIds: Set<string> = new Set()
+  preferences: UserPreferences
 ): Recommendation[] {
   const history = getContestHistory();
   const platformParticipationCounts: Record<string, number> = {};
@@ -29,6 +40,8 @@ export function calculateRecommendations(
   history.forEach(entry => {
     platformParticipationCounts[entry.platform] = (platformParticipationCounts[entry.platform] || 0) + 1;
   });
+
+  const plannedIds = getPlannedContestIds(contests);
 
   const recommendations = contests.map(contest => {
     let score = 0;
@@ -69,7 +82,7 @@ export function calculateRecommendations(
     // 5. Conflict Detection
     const hasConflict = contests.some(other => {
       if (other.id === contest.id) return false;
-      if (!prioritizedIds.has(other.id)) return false;
+      if (!plannedIds.has(other.id)) return false;
 
       const startA = contest.startTime.getTime();
       const endA = startA + contest.durationSeconds * 1000;
@@ -82,12 +95,11 @@ export function calculateRecommendations(
     if (hasConflict) {
       isConflict = true;
       score -= 50;
-      reasons.push("Conflicts with another prioritized contest");
+      reasons.push("Overlaps a contest you planned");
     }
 
     // 6. Participation Status
-    const status = getParticipationStatus(contest.id);
-    if (status === 'planned') {
+    if (plannedIds.has(contest.id)) {
       score += 20;
     }
 
@@ -118,10 +130,11 @@ export function calculateRecommendations(
 
 export function getWeeklyCapacity(
   contests: Contest[],
-  prioritizedIds: Set<string>,
   preferences: UserPreferences
 ): { remaining: number; total: number } {
-  // Count prioritized contests for the current week
+  const plannedIds = getPlannedContestIds(contests);
+
+  // Count planned contests for the current week
   const now = new Date();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay());
@@ -134,7 +147,7 @@ export function getWeeklyCapacity(
     const time = c.startTime.getTime();
     return time >= startOfWeek.getTime() &&
            time < endOfWeek.getTime() &&
-           prioritizedIds.has(c.id);
+           plannedIds.has(c.id);
   }).length;
 
   return {

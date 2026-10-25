@@ -2,24 +2,11 @@
 import Layout from "../components/Layout.astro";
 import { getPreferences } from "../lib/preferences/repository";
 import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
+import { platformMonogram, platformName } from "../lib/contests/platforms";
 import type { ContestPlatform } from "../lib/contests/types";
 
 const preferences = getPreferences();
 const enabledSet = new Set<string>(preferences.enabledPlatforms);
-
-const PLATFORM_NAMES: Record<ContestPlatform, string> = {
-  codeforces: "Codeforces",
-  atcoder: "AtCoder",
-  codechef: "CodeChef",
-  leetcode: "LeetCode",
-};
-
-const PLATFORM_MONOGRAMS: Record<ContestPlatform, string> = {
-  codeforces: "CF",
-  atcoder: "AT",
-  codechef: "CC",
-  leetcode: "LC",
-};
 
 const PLATFORM_NOTES: Record<ContestPlatform, string> = {
   codeforces: "Rounds, Div. 1–4, educational",
@@ -49,10 +36,10 @@ const PLATFORM_NOTES: Record<ContestPlatform, string> = {
     <div class="platforms">
       {SUPPORTED_PLATFORMS.map((platform) => (
         <label class="platform-row" for={`platform-${platform}`}>
-          <span class="chip chip-mono">{PLATFORM_MONOGRAMS[platform]}</span>
+          <span class="chip chip-mono">{platformMonogram(platform)}</span>
 
           <span class="platform-main">
-            <span class="platform-name">{PLATFORM_NAMES[platform]}</span>
+            <span class="platform-name">{platformName(platform)}</span>
             <span class="platform-note">{PLATFORM_NOTES[platform]}</span>
           </span>
 

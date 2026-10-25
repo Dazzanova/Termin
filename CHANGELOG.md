@@ -4,6 +4,36 @@ Notable changes to Termin. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Weekly capacity and conflict detection now read the **Planned** participation
+  status instead of a separate priority table, so marking a contest as planned
+  is the single way to tell Termin you intend to compete. The capacity meter
+  and the "Overlaps a contest you planned" warning now reflect real data.
+
+### Removed
+
+- `POST /api/planning` and the contest priority store behind it. Nothing in the
+  interface could set a priority, so the endpoint was unreachable and the
+  capacity meter always read full.
+- Unused `getStoredContests` and `removeStaleUpcomingContests` helpers, and the
+  duplicated platform name/monogram maps across five files, now shared from
+  `src/lib/contests/platforms.ts`.
+- The three static `src/pages/api/*` route files and the inline
+  `preferences-form-handler` Vite plugin.
+
+### Fixed
+
+- The history page read the database three times per request; it now reads once.
+- Participation status, preference saves, and the **Sync** button could not
+  reach the database: Astro renders every route at build time, so the three
+  static `pages/api/*` endpoints silently discarded request bodies (writes
+  answered `400 Malformed JSON`). All writes now go through one dev-server
+  integration, `src/dev/write-api.ts`, replacing both the dead endpoints and the
+  duplicate settings middleware in `astro.config.mjs`.
+
 ## [0.1.0] - 2026-10-24
 
 First tagged release. Termin is a self-hosted dashboard and calendar feed for

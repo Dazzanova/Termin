@@ -1,4 +1,5 @@
-import type { Contest, ContestPlatform } from "../contests/types";
+import type { Contest } from "../contests/types";
+import { PLATFORM_NAMES } from "../contests/platforms";
 
 export type CalendarOptions = {
   name: string;
@@ -9,13 +10,6 @@ export type CalendarOptions = {
 
 const CRLF = "\r\n";
 const DEFAULT_REFRESH_HOURS = 6;
-
-export const PLATFORM_LABELS: Record<ContestPlatform, string> = {
-  codeforces: "Codeforces",
-  atcoder: "AtCoder",
-  codechef: "CodeChef",
-  leetcode: "LeetCode",
-};
 
 /**
  * Escapes a value for an iCalendar TEXT property (RFC 5545 §3.3.11).
@@ -79,7 +73,7 @@ export function foldLine(line: string): string {
 function buildEvent(contest: Contest, now: Date): string[] {
   const start = contest.startTime;
   const end = new Date(start.getTime() + contest.durationSeconds * 1000);
-  const platform = PLATFORM_LABELS[contest.platform];
+  const platform = PLATFORM_NAMES[contest.platform];
   const description = `${platform} contest${CRLF}${contest.url}`;
 
   const lines = [

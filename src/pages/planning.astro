@@ -1,10 +1,7 @@
 ---
 import Layout from "../components/Layout.astro";
 import ContestCard from "../components/ContestCard.astro";
-import {
-  getUpcomingStoredContests,
-  getPrioritizedContestIds,
-} from "../lib/contests/repository";
+import { getUpcomingStoredContests } from "../lib/contests/repository";
 import { getPreferences } from "../lib/preferences/repository";
 import {
   calculateRecommendations,
@@ -12,25 +9,16 @@ import {
   type Recommendation,
 } from "../lib/contests/recommendations";
 import { calculateBehavioralInsights } from "../lib/contests/insights";
-import type { ContestPlatform } from "../lib/contests/types";
+import { platformName } from "../lib/contests/platforms";
 
 const preferences = getPreferences();
 const contests = getUpcomingStoredContests(preferences.enabledPlatforms);
-const prioritizedIds = getPrioritizedContestIds();
 const recommendations = calculateRecommendations(
   contests,
-  preferences,
-  prioritizedIds
+  preferences
 );
-const capacity = getWeeklyCapacity(contests, prioritizedIds, preferences);
+const capacity = getWeeklyCapacity(contests, preferences);
 const insights = calculateBehavioralInsights();
-
-const PLATFORM_NAMES: Record<string, string> = {
-  codeforces: "Codeforces",
-  atcoder: "AtCoder",
-  codechef: "CodeChef",
-  leetcode: "LeetCode",
-};
 
 const priorityClass: Record<Recommendation["priorityLabel"], string> = {
   High: "chip-accent",
@@ -92,7 +80,7 @@ const topPlatform = insights.platformDistribution[0];
 
               {rec.isConflict && (
                 <span class="chip chip-warning">
-                  Overlaps a prioritized contest
+                  Overlaps a contest you planned
                 </span>
               )}
 
@@ -129,7 +117,7 @@ const topPlatform = insights.platformDistribution[0];
         <div class="stat">
           <dt>Most tracked platform</dt>
           <dd>
-            {topPlatform ? PLATFORM_NAMES[topPlatform.platform] ?? topPlatform.platform : "—"}
+            {topPlatform ? platformName(topPlatform.platform) : "—"}
             {topPlatform && (
               <span class="stat-meta">
                 {topPlatform.percentage.toFixed(0)}% of history

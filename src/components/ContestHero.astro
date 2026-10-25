@@ -1,30 +1,13 @@
 ---
 import type { Contest } from "../lib/contests/types";
+import { platformMonogram, platformName } from "../lib/contests/platforms";
+import { formatDuration } from "../lib/contests/format";
 
 interface Props {
   contest: Contest;
 }
 
 const { contest } = Astro.props;
-
-const MONOGRAMS: Record<string, string> = {
-  codeforces: "CF",
-  atcoder: "AT",
-  codechef: "CC",
-  leetcode: "LC",
-};
-
-const PLATFORM_NAMES: Record<string, string> = {
-  codeforces: "Codeforces",
-  atcoder: "AtCoder",
-  codechef: "CodeChef",
-  leetcode: "LeetCode",
-};
-
-const platformKey = contest.platform.toLowerCase();
-const monogram =
-  MONOGRAMS[platformKey] ?? contest.platform.slice(0, 2).toUpperCase();
-const platformName = PLATFORM_NAMES[platformKey] ?? contest.platform;
 
 const start = contest.startTime.toLocaleString("en-GB", {
   weekday: "short",
@@ -34,9 +17,7 @@ const start = contest.startTime.toLocaleString("en-GB", {
   minute: "2-digit",
 });
 
-const hours = Math.floor(contest.durationSeconds / 3600);
-const minutes = Math.floor((contest.durationSeconds % 3600) / 60);
-const duration = `${hours}h ${String(minutes).padStart(2, "0")}m`;
+const duration = formatDuration(contest.durationSeconds);
 ---
 
 <article class="hero" data-start={contest.startTime.toISOString()}>
@@ -51,8 +32,8 @@ const duration = `${hours}h ${String(minutes).padStart(2, "0")}m`;
     </h2>
 
     <div class="hero-meta">
-      <span class="chip chip-mono">{monogram}</span>
-      <span>{platformName}</span>
+      <span class="chip chip-mono">{platformMonogram(contest.platform)}</span>
+      <span>{platformName(contest.platform)}</span>
       <span class="sep">·</span>
       <time datetime={contest.startTime.toISOString()}>{start}</time>
       <span class="sep">·</span>

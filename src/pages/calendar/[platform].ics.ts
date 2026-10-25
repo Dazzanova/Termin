@@ -1,10 +1,8 @@
 import type { APIRoute } from "astro";
-import {
-  buildCalendar,
-  PLATFORM_LABELS,
-} from "../../lib/calendar/ics";
+import { buildCalendar } from "../../lib/calendar/ics";
 import { calendarResponse } from "../../lib/calendar/http";
 import { getUpcomingContests } from "../../lib/contests/getUpcomingContests";
+import { PLATFORM_NAMES } from "../../lib/contests/platforms";
 import type { ContestPlatform } from "../../lib/contests/types";
 import { SUPPORTED_PLATFORMS } from "../../lib/preferences/types";
 
@@ -24,7 +22,7 @@ export const GET: APIRoute = ({ params }) => {
   }
 
   const contests = getUpcomingContests([platform]);
-  const label = PLATFORM_LABELS[platform];
+  const label = PLATFORM_NAMES[platform];
 
   const body = buildCalendar(contests, {
     name: `Termin — ${label}`,

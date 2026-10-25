@@ -99,6 +99,7 @@ src/
   pages/               Astro routes, including calendar.ics.ts
   components/          Astro components (no client framework)
   scripts/             sync CLI and background worker
+  dev/                 write API mounted on the dev server only
 ```
 
 Data flow: `sync` → provider adapters → validation → reconciliation → SQLite →
@@ -116,10 +117,9 @@ local time zone.
 
 ## Limitations
 
-- The write endpoints (`/api/preferences`, `/api/participation`,
-  `/api/planning`, `/api/sync`) only run in the dev server. A static build is
-  read-only, so preferences, participation tracking, and the **Sync** button are
-  disabled there.
+- Termin builds to static files, so writes (`participation`, `preferences`,
+  **Sync**) are served by a dev-server integration (`src/dev/write-api.ts`)
+  that `npm run build` does not include. A static build is read-only.
 - Reminders are scheduled and stored, but no delivery channel is implemented
   yet. See the roadmap.
 - Migrations are forward-only. If a pre-1.0 database is incompatible, delete

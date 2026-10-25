@@ -4,24 +4,11 @@ import ContestCard from "../components/ContestCard.astro";
 import ContestHero from "../components/ContestHero.astro";
 import SubscribeCard from "../components/SubscribeCard.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
+import { PLATFORM_NAMES, platformMonogram, platformName } from "../lib/contests/platforms";
 import type { Contest, ContestPlatform } from "../lib/contests/types";
 
 const contests = getUpcomingContests();
 const nextContest = contests.length > 0 ? contests[0] : null;
-
-const PLATFORM_NAMES: Record<ContestPlatform, string> = {
-  codeforces: "Codeforces",
-  atcoder: "AtCoder",
-  codechef: "CodeChef",
-  leetcode: "LeetCode",
-};
-
-const MONOGRAMS: Record<ContestPlatform, string> = {
-  codeforces: "CF",
-  atcoder: "AT",
-  codechef: "CC",
-  leetcode: "LC",
-};
 
 function dayLabel(date: Date, now: Date): string {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -57,8 +44,8 @@ for (const contest of contests) {
 const coverage = (Object.keys(PLATFORM_NAMES) as ContestPlatform[])
   .map((platform) => ({
     platform,
-    name: PLATFORM_NAMES[platform],
-    monogram: MONOGRAMS[platform],
+    name: platformName(platform),
+    monogram: platformMonogram(platform),
     count: contests.filter((contest) => contest.platform === platform).length,
   }))
   .filter((entry) => entry.count > 0);

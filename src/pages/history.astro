@@ -1,27 +1,19 @@
 ---
 import Layout from "../components/Layout.astro";
 import { getContestHistory } from "../lib/contests/repository";
+import { platformMonogram, platformName } from "../lib/contests/platforms";
 import type { ParticipationStatus } from "../lib/contests/types";
 
 const statusFilter = Astro.url.searchParams.get(
   "status"
 ) as ParticipationStatus | null;
 
-const history = getContestHistory(statusFilter);
-
-const PLATFORM_NAMES: Record<string, string> = {
-  codeforces: "Codeforces",
-  atcoder: "AtCoder",
-  codechef: "CodeChef",
-  leetcode: "LeetCode",
-};
-
-const MONOGRAMS: Record<string, string> = {
-  codeforces: "CF",
-  atcoder: "AT",
-  codechef: "CC",
-  leetcode: "LC",
-};
+// One read serves both the list and the header counts; filtering in memory
+// keeps this to a single query per request.
+const allEntries = getContestHistory();
+const history = statusFilter
+  ? allEntries.filter((entry) => entry.status === statusFilter)
+  : allEntries;
 
 const STATUS_LABELS: Record<ParticipationStatus, string> = {
   planned: "Planned",
@@ -45,8 +37,9 @@ const filters = [
 ];
 
 const counts = {
-  total: getContestHistory().length,
-  participated: getContestHistory("participated").length,
+  total: allEntries.length,
+  participated: allEntries.filter((entry) => entry.status === "participated")
+    .length,
 };
 ---
 
@@ -113,10 +106,9 @@ const counts = {
               </h2>
               <div class="contest-meta">
                 <span class="chip chip-mono">
-                  {MONOGRAMS[entry.platform] ??
-                    entry.platform.slice(0, 2).toUpperCase()}
+                  {platformMonogram(entry.platform)}
                 </span>
-                <span>{PLATFORM_NAMES[entry.platform] ?? entry.platform}</span>
+                <span>{platformName(entry.platform)}</span>
               </div>
             </div>
 

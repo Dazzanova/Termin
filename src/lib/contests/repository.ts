@@ -28,18 +28,6 @@ function rowToContest(row: ContestRow): Contest {
   };
 }
 
-const getContestsStatement = db.prepare(`
-  SELECT
-    id,
-    platform,
-    name,
-    start_time,
-    duration_seconds,
-    url,
-    updated_at
-  FROM contests
-`);
-
 const getUpcomingContestsStatement = db.prepare(`
   SELECT
     id,
@@ -134,26 +122,6 @@ const deleteContestStatement = db.prepare(`
     AND platform = ?
 `);
 
-// Priority storage
-const getPrioritizedIdsStatement = db.prepare(`
-  SELECT contest_id FROM contest_priorities
-`);
-
-const savePriorityStatement = db.prepare(`
-  INSERT INTO contest_priorities (contest_id, prioritized_at)
-  VALUES (?, ?)
-`);
-
-const deletePriorityStatement = db.prepare(`
-  DELETE FROM contest_priorities WHERE contest_id = ?
-`);
-
-export function getStoredContests(): Contest[] {
-  const rows = getContestsStatement.all() as ContestRow[];
-
-  return rows.map(rowToContest);
-}
-
 export function getUpcomingStoredContests(
   platforms?: ContestPlatform[]
 ): Contest[] {
@@ -219,43 +187,6 @@ export function saveContests(contests: Contest[]): void {
   });
 
   transaction(contests);
-}
-
-export function removeStaleUpcomingContests(
-  platform: ContestPlatform,
-  currentIds: Set<string>
-): number {
-  const now = new Date().toISOString();
-
-  const stored = getUpcomingContestsByPlatformStatement.all(
-    platform,
-    now
-  ) as ContestRow[];
-
-  const staleIds = stored
-    .map((row) => row.id)
-    .filter((id) => {
-      if (!currentIds.has(id)) {
-        // Do not remove if the user has recorded participation
-        const participation = getParticipationStatement.get(id) as ParticipationRow | undefined;
-        return !participation;
-      }
-      return false;
-    });
-
-  if (staleIds.length === 0) {
-    return 0;
-  }
-
-  const deleteMany = db.transaction((ids: string[]) => {
-    for (const id of ids) {
-      deleteContestStatement.run(id, now, platform);
-    }
-  });
-
-  deleteMany(staleIds);
-
-  return staleIds.length;
 }
 
 export function syncProviderContests(
@@ -364,17 +295,4 @@ export function getContestHistory(
     url: row.url,
     status: row.status,
   }));
-}
-
-export function getPrioritizedContestIds(): Set<string> {
-  const rows = getPrioritizedIdsStatement.all() as { contest_id: string }[];
-  return new Set(rows.map(row => row.contest_id));
-}
-
-export function toggleContestPriority(contestId: string, isPrioritized: boolean): void {
-  if (isPrioritized) {
-    savePriorityStatement.run(contestId, new Date().toISOString());
-  } else {
-    deletePriorityStatement.run(contestId);
-  }
 }

@@ -1,12 +1,12 @@
 ---
-import { PLATFORM_LABELS } from "../lib/calendar/ics";
+import { PLATFORM_NAMES } from "../lib/contests/platforms";
 import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
 
 const feeds = [
   { path: "/calendar.ics", label: "All platforms" },
   ...SUPPORTED_PLATFORMS.map((platform) => ({
     path: `/calendar/${platform}.ics`,
-    label: PLATFORM_LABELS[platform],
+    label: PLATFORM_NAMES[platform],
   })),
 ];
 ---
