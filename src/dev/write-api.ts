@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AstroIntegration } from "astro";
 import type { ParticipationStatus } from "../lib/contests/types";
 import type { UserPreferences } from "../lib/preferences/types";
+import { isDemoMode } from "../lib/demo";
 
 /**
  * Termin builds to static files, so there is no server to answer write
@@ -133,6 +134,13 @@ export function devWriteApi(): AstroIntegration {
           },
 
           "/api/sync": async () => {
+            if (isDemoMode()) {
+              return {
+                status: 403,
+                json: { error: "Sync is disabled in demo mode" },
+              };
+            }
+
             if (syncRunning) {
               return {
                 status: 409,

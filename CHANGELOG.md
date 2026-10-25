@@ -6,6 +6,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `npm run demo`: seeds a disposable `.data/demo.db` with upcoming contests, a
+  deliberate planning conflict, three weeks of history, and insights, then
+  starts the dev server — so a fresh clone shows a populated dashboard with no
+  network access or provider sync. Your real database is untouched, the toolbar
+  shows a **Demo data** badge, and Sync is disabled against fixtures.
+
 ### Changed
 
 - Weekly capacity and conflict detection now read the **Planned** participation

@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import SyncButton from "./SyncButton.astro";
 import SyncStatus from "./SyncStatus.astro";
+import { isDemoMode } from "../lib/demo";
 
 interface Props {
   title: string;
@@ -19,6 +20,7 @@ const nav = [
 ] as const;
 
 const hasRail = Astro.slots.has("rail");
+const demo = isDemoMode();
 ---
 
 <!doctype html>
@@ -73,7 +75,13 @@ const hasRail = Astro.slots.has("rail");
 
         <div class="topbar-actions">
           <SyncStatus />
-          <SyncButton />
+          {demo ? (
+            <span class="chip" title="Seeded fixtures, not live contest data">
+              Demo data
+            </span>
+          ) : (
+            <SyncButton />
+          )}
         </div>
       </div>
     </header>

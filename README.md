@@ -50,6 +50,21 @@ contests without leaving the page. A production build (`npm run build`) is a
 read-only snapshot, because the write endpoints only exist in the dev server.
 See [Limitations](#limitations).
 
+### Try the demo
+
+```bash
+npm install
+npm run demo   # http://localhost:4321
+```
+
+No network, API keys, or provider sync needed. The demo seeds a disposable
+database at `.data/demo.db` with upcoming contests, a week of planning
+(including an overlapping pair), three weeks of history, and insights, then
+starts the dev server. Your real `.data/termin.db` is never touched. The toolbar
+shows a **Demo data** badge instead of **Sync**, because a fixture set is a
+snapshot. Set `PORT` to use another port, and delete `.data/demo.db` when you are
+done.
+
 ## Calendar subscriptions
 
 Termin serves iCalendar feeds from these paths:
@@ -79,6 +94,7 @@ regenerated on each build, so a deployed feed is as fresh as the last deploy.
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Development server with full read/write behaviour |
+| `npm run demo` | Seed a disposable demo database and start the dashboard |
 | `npm run sync` | Fetch contests from every provider and reconcile them into SQLite |
 | `npm run sync:worker` | Long-running sync loop (`TERMIN_SYNC_INTERVAL_HOURS`, default 24) |
 | `npm run build` | Static build of the dashboard and calendar files |

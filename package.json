@@ -12,7 +12,8 @@
     "astro": "astro",
     "test": "vitest run",
     "sync": "tsx src/scripts/sync.ts",
-    "sync:worker": "tsx src/scripts/sync-worker.ts"
+    "sync:worker": "tsx src/scripts/sync-worker.ts",
+    "demo": "tsx src/scripts/demo.ts"
   },
   "dependencies": {
     "astro": "^7.3.3",
