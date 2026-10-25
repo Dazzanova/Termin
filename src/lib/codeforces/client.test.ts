@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mapProblemset, mapSubmissions } from "./client";
+import {
+  CodeforcesError,
+  isUnratedRatingError,
+  mapProblemset,
+  mapRatingHistory,
+  mapSubmissions,
+} from "./client";
 
 describe("mapProblemset", () => {
   it("builds problem ids, urls, and tags", () => {
@@ -84,5 +90,52 @@ describe("mapSubmissions", () => {
     ]);
 
     expect(submissions).toHaveLength(0);
+  });
+});
+
+describe("mapRatingHistory", () => {
+  it("maps rating updates to entries", () => {
+    const entries = mapRatingHistory([
+      {
+        contestId: 1001,
+        contestName: "Codeforces Round 1001 (Div. 2)",
+        handle: "tourist",
+        rank: 1200,
+        ratingUpdateTimeSeconds: 1_700_000_000,
+        oldRating: 1400,
+        newRating: 1432,
+      },
+    ]);
+
+    expect(entries).toEqual([
+      {
+        platform: "codeforces",
+        contestId: "1001",
+        contestName: "Codeforces Round 1001 (Div. 2)",
+        rank: 1200,
+        oldRating: 1400,
+        newRating: 1432,
+        ratedAt: new Date(1_700_000_000 * 1000),
+      },
+    ]);
+  });
+});
+
+describe("isUnratedRatingError", () => {
+  it("recognises a handle with no rated contests", () => {
+    expect(
+      isUnratedRatingError(
+        new CodeforcesError(
+          "handle: User x has not participated in any rated contests"
+        )
+      )
+    ).toBe(true);
+  });
+
+  it("does not swallow other failures", () => {
+    expect(
+      isUnratedRatingError(new CodeforcesError("handle: User x not found"))
+    ).toBe(false);
+    expect(isUnratedRatingError(new Error("boom"))).toBe(false);
   });
 });
