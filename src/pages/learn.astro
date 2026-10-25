@@ -1,0 +1,546 @@
+---
+import Layout from "../components/Layout.astro";
+import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
+import { PLATFORM_NAMES } from "../lib/contests/platforms";
+import { listPacks } from "../lib/packs/build";
+import { listProblems } from "../lib/training/repository";
+
+const packs = listPacks(
+  getUpcomingContests(),
+  listProblems("codeforces")
+);
+const contestPacks = packs.filter((pack) => pack.id.startsWith("contest-"));
+const genericPacks = packs.filter((pack) => pack.id.startsWith("platform-"));
+
+const platforms = [
+  {
+    name: "Codeforces",
+    format: "Div. 1–4 · 5–6 problems",
+    files: "A–E, real letters when imported",
+    note: "Most contests are scored by points, and a wrong submission costs you. Claim A and B fast, then slow down.",
+  },
+  {
+    name: "AtCoder",
+    format: "ABC · ARC · AGC · 4–8 problems",
+    files: "A–G",
+    note: "ABC is the beginner series. Difficulty climbs one step at a time, so a stuck problem usually means an earlier one is unfinished.",
+  },
+  {
+    name: "CodeChef",
+    format: "Starters · Div. 1–4",
+    files: "A–F",
+    note: "Subtasks give partial marks. Submit a brute force that clears the small cases before you optimize.",
+  },
+  {
+    name: "LeetCode",
+    format: "Weekly · Biweekly · 4 problems",
+    files: "p1–p4",
+    note: "Ranked by problems solved, then penalty time. Easy first, and submit as soon as the samples pass.",
+  },
+];
+---
+
+<Layout
+  title="Learn — Termin"
+  active="learn"
+  description="How to approach a competitive programming contest, plus a C++ starter pack for the next one."
+>
+  <div class="page-head">
+    <div>
+      <h1>Start here</h1>
+      <p class="subtitle">
+        How to approach a contest without freezing up, and the files to do it
+        in.
+      </p>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-heading">
+      <h2>The first contest playbook</h2>
+      <span>3 phases</span>
+    </div>
+
+    <div class="playbook">
+      <article class="card play-card">
+        <span class="play-phase">Before</span>
+        <h3>Set up, then decide</h3>
+        <ul>
+          <li>
+            Warm up on one easy problem. Ten minutes of typing beats ten
+            minutes of staring.
+          </li>
+          <li>
+            Have your compile-and-run command ready before the clock starts:
+            <code>g++ -O2 -std=c++17 a.cpp -o a &amp;&amp; ./a</code>
+          </li>
+          <li>
+            Read every problem once before writing anything. The order you
+            solve in matters more than the order they are listed.
+          </li>
+        </ul>
+      </article>
+
+      <article class="card play-card">
+        <span class="play-phase">During</span>
+        <h3>Order by cost, not by letter</h3>
+        <ul>
+          <li>
+            Start with the problem where you can already see a full solution,
+            even if it is not problem A.
+          </li>
+          <li>
+            The five-minute rule: no idea how to start? Skip it, come back
+            later. A contest is a set of independent problems.
+          </li>
+          <li>
+            Run the samples before you submit. If a solution feels too slow,
+            re-read the constraints instead of guessing.
+          </li>
+          <li>
+            Keep the last ten minutes for submitting what works. Do not start
+            a risky rewrite you cannot finish.
+          </li>
+        </ul>
+      </article>
+
+      <article class="card play-card">
+        <span class="play-phase">After</span>
+        <h3>Convert the loss into practice</h3>
+        <ul>
+          <li>
+            Upsolve the problem you almost had, while you still remember why
+            you got it wrong.
+          </li>
+          <li>
+            Read the editorial only after a real attempt. Reading it first
+            feels productive and teaches almost nothing.
+          </li>
+          <li>
+            Note the tag you lost to.{" "}
+            <a href="/profile">Your profile</a> turns those tags into the next
+            five problems to try.
+          </li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-heading">
+      <h2>What each platform expects</h2>
+      <span>4 platforms</span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="cheat-sheet">
+        <thead>
+          <tr>
+            <th scope="col">Platform</th>
+            <th scope="col">Format</th>
+            <th scope="col">Pack files</th>
+            <th scope="col">Worth knowing</th>
+          </tr>
+        </thead>
+        <tbody>
+          {platforms.map((platform) => (
+            <tr>
+              <th scope="row">{platform.name}</th>
+              <td>{platform.format}</td>
+              <td class="mono">{platform.files}</td>
+              <td>{platform.note}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-heading">
+      <h2>Starter packs</h2>
+      <span>C++17</span>
+    </div>
+
+    <p class="pack-intro">
+      Every pack is one <code>.cpp</code> file per problem, with fast IO and a
+      <code>TODO</code>. <strong>Save to folder</strong> writes them straight
+      into a directory you pick — no unzip step. Choose an empty folder: the
+      files go in directly, not into a subfolder.
+    </p>
+
+    {contestPacks.length > 0 && (
+      <>
+        <h3 class="pack-group">Upcoming contests</h3>
+        <div class="pack-grid">
+          {contestPacks.map((pack) => (
+            <article class="card pack" data-pack>
+              <div class="pack-head">
+                <span class="chip">{PLATFORM_NAMES[pack.platform]}</span>
+                <span class="pack-count">{pack.files.length} files</span>
+              </div>
+              <h4>{pack.title}</h4>
+              <p class="pack-meta">{pack.subtitle}</p>
+              <p class="pack-files mono">
+                {pack.files.map((file) => file.name).join(" · ")}
+              </p>
+              <div class="pack-actions">
+                <button
+                  class="btn btn-primary pack-save"
+                  type="button"
+                  data-save-folder
+                  data-files={JSON.stringify(pack.files)}
+                  data-folder={pack.folder}
+                >
+                  Save to folder
+                </button>
+                <a
+                  class="pack-zip"
+                  data-zip
+                  href={`/packs/${pack.id}.zip`}
+                  download={`${pack.folder}.zip`}
+                >
+                  or download .zip
+                </a>
+              </div>
+            </article>
+          ))}
+        </div>
+      </>
+    )}
+
+    <h3 class="pack-group">Any contest</h3>
+    <div class="pack-grid">
+      {genericPacks.map((pack) => (
+        <article class="card pack" data-pack>
+          <div class="pack-head">
+            <span class="chip">{PLATFORM_NAMES[pack.platform]}</span>
+            <span class="pack-count">{pack.files.length} files</span>
+          </div>
+          <h4>{pack.title}</h4>
+          <p class="pack-meta">{pack.subtitle}</p>
+          <p class="pack-files mono">
+            {pack.files.map((file) => file.name).join(" · ")}
+          </p>
+          <div class="pack-actions">
+            <button
+              class="btn btn-primary pack-save"
+              type="button"
+              data-save-folder
+              data-files={JSON.stringify(pack.files)}
+              data-folder={pack.folder}
+            >
+              Save to folder
+            </button>
+            <a
+              class="pack-zip"
+              data-zip
+              href={`/packs/${pack.id}.zip`}
+              download={`${pack.folder}.zip`}
+            >
+              or download .zip
+            </a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+</Layout>
+
+<script>
+  import { showToast } from "../lib/ui/toast";
+
+  type FileSystemWindow = Window & {
+    showDirectoryPicker?: (options?: {
+      mode?: "read" | "readwrite";
+    }) => Promise<FileSystemDirectoryHandle>;
+  };
+
+  type PackFile = {
+    name: string;
+    contents: string;
+  };
+
+  const buttons =
+    document.querySelectorAll<HTMLButtonElement>("[data-save-folder]");
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const pack = button.closest<HTMLElement>("[data-pack]");
+      const zip = pack?.querySelector<HTMLAnchorElement>("a[data-zip]");
+      let files: PackFile[] = [];
+
+      try {
+        files = JSON.parse(button.dataset.files ?? "[]") as PackFile[];
+      } catch {
+        showToast("This pack could not be read", "error");
+        return;
+      }
+
+      if (files.length === 0) {
+        return;
+      }
+
+      const picker = (window as FileSystemWindow).showDirectoryPicker;
+
+      // Safari and Firefox have no directory picker: fall back to the archive.
+      if (!picker) {
+        showToast(
+          "This browser can't write to a folder, downloading the zip instead",
+          "error"
+        );
+        zip?.click();
+        return;
+      }
+
+      button.disabled = true;
+
+      try {
+        const directory = await picker({ mode: "readwrite" });
+
+        for (const file of files) {
+          const handle = await directory.getFileHandle(file.name, {
+            create: true,
+          });
+          const writable = await handle.createWritable();
+          await writable.write(file.contents);
+          await writable.close();
+        }
+
+        button.textContent = `Saved ${files.length} files`;
+        showToast(
+          `Saved ${files.length} ${files.length === 1 ? "file" : "files"} to ${directory.name}`
+        );
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        showToast(
+          error instanceof Error
+            ? error.message
+            : "Could not save the files",
+          "error"
+        );
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .playbook {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .play-card {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+
+  .play-phase {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--brand);
+  }
+
+  .play-card h3 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .play-card ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  .play-card a {
+    color: var(--text-secondary);
+  }
+
+  .play-card a:hover {
+    color: var(--brand);
+  }
+
+  .play-card code,
+  .pack-intro code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 1px 4px;
+    white-space: nowrap;
+  }
+
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+  }
+
+  .cheat-sheet {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
+  }
+
+  .cheat-sheet th,
+  .cheat-sheet td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: top;
+  }
+
+  .cheat-sheet thead th {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--surface-elevated);
+    white-space: nowrap;
+  }
+
+  .cheat-sheet tbody tr:last-child th,
+  .cheat-sheet tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .cheat-sheet tbody th {
+    color: var(--text);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .cheat-sheet td {
+    color: var(--text-muted);
+  }
+
+  .cheat-sheet .mono {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .pack-intro {
+    margin: 0 0 14px;
+    max-width: 76ch;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.65;
+  }
+
+  .pack-intro strong {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .pack-group {
+    margin: 18px 0 10px;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .pack-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .pack {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+  }
+
+  .pack-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .pack-count {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-dim);
+  }
+
+  .pack h4 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .pack-meta {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  .pack-files {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .pack-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .pack-save {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 0.75rem;
+  }
+
+  .pack-zip {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    text-decoration: none;
+  }
+
+  .pack-zip:hover {
+    color: var(--brand);
+  }
+
+  @media (max-width: 860px) {
+    .playbook {
+      grid-template-columns: 1fr;
+    }
+
+    .pack-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
