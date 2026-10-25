@@ -6,9 +6,18 @@ import SubscribeCard from "../components/SubscribeCard.astro";
 import { getUpcomingContests } from "../lib/contests/getUpcomingContests";
 import { PLATFORM_NAMES, platformMonogram, platformName } from "../lib/contests/platforms";
 import type { Contest, ContestPlatform } from "../lib/contests/types";
+import {
+  getAccount,
+  getReviewCounts,
+  listDueReviews,
+} from "../lib/training/repository";
 
 const contests = getUpcomingContests();
 const nextContest = contests.length > 0 ? contests[0] : null;
+
+const trainingAccount = getAccount("codeforces");
+const trainingCounts = trainingAccount ? getReviewCounts() : null;
+const dueReviews = trainingAccount ? listDueReviews(new Date(), 2) : [];
 
 function dayLabel(date: Date, now: Date): string {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -97,6 +106,44 @@ const coverage = (Object.keys(PLATFORM_NAMES) as ContestPlatform[])
   </section>
 
   <div slot="rail">
+    {trainingAccount && trainingCounts && (
+      <section class="card">
+        <h2 class="card-title">Training</h2>
+
+        <div class="train-head">
+          <span class="train-count">{trainingCounts.due}</span>
+          <span class="train-label">
+            {trainingCounts.due === 1 ? "review due" : "reviews due"}
+          </span>
+        </div>
+
+        {dueReviews.length > 0 ? (
+          <ul class="train-list">
+            {dueReviews.map((entry) => (
+              <li>
+                <a
+                  href={entry.problem.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {entry.problem.name}
+                </a>
+                {entry.problem.rating && (
+                  <span class="train-rating">{entry.problem.rating}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p class="train-empty">
+            {trainingCounts.upcoming} scheduled · nothing due
+          </p>
+        )}
+
+        <a class="btn train-link" href="/practice">Open practice</a>
+      </section>
+    )}
+
     <SubscribeCard />
 
     {coverage.length > 0 && (
@@ -117,6 +164,71 @@ const coverage = (Object.keys(PLATFORM_NAMES) as ContestPlatform[])
 </Layout>
 
 <style>
+  .train-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .train-count {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  .train-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .train-list {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+
+  .train-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.8125rem;
+  }
+
+  .train-list a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .train-list a:hover {
+    color: var(--brand);
+  }
+
+  .train-rating {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .train-empty {
+    margin: 0 0 12px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+
+  .train-link {
+    width: 100%;
+    justify-content: center;
+  }
+
   .coverage {
     list-style: none;
     margin: 0;

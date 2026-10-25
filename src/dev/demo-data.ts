@@ -4,6 +4,11 @@ import type {
   ParticipationStatus,
 } from "../lib/contests/types";
 import type { UserPreferences } from "../lib/preferences/types";
+import type {
+  Problem,
+  ProblemReview,
+  Submission,
+} from "../lib/training/types";
 
 /**
  * Fixtures for `npm run demo`. Every timestamp is relative to the moment the
@@ -283,11 +288,165 @@ export const DEMO_PREFERENCES: UserPreferences = {
   },
 };
 
+const TRAINING_HANDLE = "termin_demo";
+
+/** Problems for the demo's past Codeforces contests (demo-h1/h5/h9/h13). */
+const TRAINING_PROBLEMS: {
+  contestId: string;
+  index: string;
+  name: string;
+  rating: number;
+  tags: string[];
+}[] = [
+  {
+    contestId: "demo-h1",
+    index: "A",
+    name: "Array Cloning",
+    rating: 800,
+    tags: ["implementation"],
+  },
+  {
+    contestId: "demo-h1",
+    index: "B",
+    name: "Card Game",
+    rating: 1200,
+    tags: ["games", "greedy"],
+  },
+  {
+    contestId: "demo-h1",
+    index: "C",
+    name: "Tree Cutting",
+    rating: 1800,
+    tags: ["trees", "dfs and similar"],
+  },
+  {
+    contestId: "demo-h5",
+    index: "A",
+    name: "Two Permutations",
+    rating: 900,
+    tags: ["constructive algorithms"],
+  },
+  {
+    contestId: "demo-h5",
+    index: "B",
+    name: "Prefix Sums",
+    rating: 1300,
+    tags: ["dp"],
+  },
+  {
+    contestId: "demo-h5",
+    index: "C",
+    name: "Shortest Path",
+    rating: 1700,
+    tags: ["graphs", "shortest paths"],
+  },
+  {
+    contestId: "demo-h9",
+    index: "A",
+    name: "Binary Search",
+    rating: 1000,
+    tags: ["binary search"],
+  },
+  {
+    contestId: "demo-h9",
+    index: "B",
+    name: "Grid Walk",
+    rating: 1400,
+    tags: ["dp", "grids"],
+  },
+  {
+    contestId: "demo-h9",
+    index: "C",
+    name: "Cost Flow",
+    rating: 1900,
+    tags: ["flows"],
+  },
+  {
+    contestId: "demo-h13",
+    index: "A",
+    name: "String Shift",
+    rating: 800,
+    tags: ["strings"],
+  },
+  {
+    contestId: "demo-h13",
+    index: "B",
+    name: "Range Queries",
+    rating: 1500,
+    tags: ["data structures"],
+  },
+  {
+    contestId: "demo-h13",
+    index: "C",
+    name: "Cycle Count",
+    rating: 2000,
+    tags: ["graphs"],
+  },
+];
+
+/** Overdue first, then a handful spread over the coming days. */
+const TRAINING_REVIEWS: { problemId: string; daysFromNow: number }[] = [
+  { problemId: "codeforces:demo-h1B", daysFromNow: -1 },
+  { problemId: "codeforces:demo-h1C", daysFromNow: -0.2 },
+  { problemId: "codeforces:demo-h5B", daysFromNow: -3 },
+  { problemId: "codeforces:demo-h5C", daysFromNow: 1 },
+  { problemId: "codeforces:demo-h9B", daysFromNow: 2 },
+  { problemId: "codeforces:demo-h9C", daysFromNow: 2 },
+  { problemId: "codeforces:demo-h13B", daysFromNow: 4 },
+  { problemId: "codeforces:demo-h13C", daysFromNow: 5 },
+];
+
+export type DemoTraining = {
+  handle: string;
+  problems: Problem[];
+  submissions: Submission[];
+  reviews: ProblemReview[];
+};
+
 export type DemoDataset = {
   contests: Contest[];
   participation: { contestId: string; status: ParticipationStatus }[];
   preferences: UserPreferences;
+  training: DemoTraining;
 };
+
+function buildTraining(now: Date): DemoTraining {
+  const problems: Problem[] = TRAINING_PROBLEMS.map((problem) => ({
+    id: `codeforces:${problem.contestId}${problem.index}`,
+    platform: "codeforces",
+    contestId: problem.contestId,
+    index: problem.index,
+    name: problem.name,
+    rating: problem.rating,
+    tags: problem.tags,
+    url: `https://codeforces.com/problemset/problem/${problem.contestId}/${problem.index}`,
+  }));
+
+  // One accepted problem per contest, so the queue is not uniformly unsolved.
+  const solved = problems.filter((problem) => problem.index === "A");
+  const submissions: Submission[] = solved.map((problem, index) => ({
+    id: `codeforces:demo-submission-${index + 1}`,
+    platform: "codeforces",
+    problemId: problem.id,
+    verdict: "OK",
+    submittedAt: new Date(now.getTime() - (index + 2) * 86_400_000),
+  }));
+
+  const reviews: ProblemReview[] = TRAINING_REVIEWS.map((entry) => {
+    const dueAt = new Date(now.getTime() + entry.daysFromNow * 86_400_000);
+
+    return {
+      problemId: entry.problemId,
+      status: entry.daysFromNow < 0 ? "due" : "scheduled",
+      dueAt,
+      intervalDays: entry.daysFromNow < 0 ? 1 : Math.max(1, entry.daysFromNow),
+      attempts: 0,
+      updatedAt: now,
+    };
+  });
+
+  return { handle: TRAINING_HANDLE, problems, submissions, reviews };
+}
 
 function futureStart(
   now: Date,
@@ -368,5 +527,6 @@ export function buildDemoDataset(now: Date = new Date()): DemoDataset {
       ...DEMO_PREFERENCES,
       enabledPlatforms: [...DEMO_PREFERENCES.enabledPlatforms],
     },
+    training: buildTraining(now),
   };
 }

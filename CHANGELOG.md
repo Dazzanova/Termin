@@ -8,6 +8,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Practice loop, phase 1–2.** Link a Codeforces handle to import the public
+  problem catalog and your submission history, then upsolve the problems you
+  did not solve from contests you marked as participated. Failures come back on
+  a 1 → 3 → 7 → 21 day schedule. New `/practice` page, a Training card in the
+  Contests rail, and `npm run import -- --handle <handle>`.
+- Migration `003_training.sql`: `platform_accounts`, `problems`, `submissions`,
+  `problem_reviews`, and `training_state`.
 - `npm run demo`: seeds a disposable `.data/demo.db` with upcoming contests, a
   deliberate planning conflict, three weeks of history, and insights, then
   starts the dev server — so a fresh clone shows a populated dashboard with no

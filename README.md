@@ -28,6 +28,8 @@ No account, no server, no telemetry — your data stays in `.data/termin.db`.
 | Personal preferences: platforms, weekly cap, preferred days and hours | ✅ |
 | Weekly planning with recommendations and conflict detection | ✅ |
 | Participation history and behavioural insights | ✅ |
+| Codeforces handle import: catalog + submission history | ✅ |
+| Upsolve queue with spaced review (1 → 3 → 7 → 21 days) | ✅ |
 | iCalendar feeds per platform and combined | ✅ |
 | Reminder delivery (push, email, Discord) | 🚧 roadmap |
 | Hosted multi-user version | 🚧 roadmap |
@@ -65,6 +67,27 @@ shows a **Demo data** badge instead of **Sync**, because a fixture set is a
 snapshot. Set `PORT` to use another port, and delete `.data/demo.db` when you are
 done.
 
+## Practice and upsolving
+
+Link a Codeforces handle in [Settings](/settings), or import from the CLI:
+
+```bash
+npm run import -- --handle yourhandle
+```
+
+The import pulls the public problem catalog and your submission history (two
+requests to the keyless Codeforces API), then queues every problem you did not
+solve from contests you marked as **Participated**. Solved problems retire
+themselves on the next import.
+
+Practice schedules failures at 1 → 3 → 7 → 21 days. **Again** advances the
+interval, **Solved** closes the problem, **Drop** removes it. The Contests page
+shows the due count in the rail, and `/practice` holds the full queue.
+
+Only Codeforces is importable today; the schema is keyed by platform so other
+providers can follow. Your handle is only sent to Codeforces, and the imported
+catalog stays in your local SQLite file.
+
 ## Calendar subscriptions
 
 Termin serves iCalendar feeds from these paths:
@@ -95,6 +118,7 @@ regenerated on each build, so a deployed feed is as fresh as the last deploy.
 | --- | --- |
 | `npm run dev` | Development server with full read/write behaviour |
 | `npm run demo` | Seed a disposable demo database and start the dashboard |
+| `npm run import` | Import the Codeforces catalog and your submissions |
 | `npm run sync` | Fetch contests from every provider and reconcile them into SQLite |
 | `npm run sync:worker` | Long-running sync loop (`TERMIN_SYNC_INTERVAL_HOURS`, default 24) |
 | `npm run build` | Static build of the dashboard and calendar files |
@@ -138,6 +162,8 @@ local time zone.
   that `npm run build` does not include. A static build is read-only.
 - Reminders are scheduled and stored, but no delivery channel is implemented
   yet. See the roadmap.
+- Training imports and review actions need the dev server, like every other
+  write. Submissions and the catalog are only imported for Codeforces.
 - Migrations are forward-only. If a pre-1.0 database is incompatible, delete
   `.data/termin.db` and run `npm run sync` again.
 

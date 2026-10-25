@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AstroIntegration } from "astro";
 import type { ParticipationStatus } from "../lib/contests/types";
 import type { UserPreferences } from "../lib/preferences/types";
+import type { ReviewAction } from "../lib/training/types";
 import { isDemoMode } from "../lib/demo";
 
 /**
@@ -47,12 +48,30 @@ type SyncModule = {
   }>;
 };
 
+type TrainingImportModule = {
+  importCodeforcesData: (handle?: string) => Promise<{
+    problems: number;
+    submissions: number;
+    solved: number;
+    queuedReviews: number;
+    closedReviews: number;
+    importedAt: Date;
+  }>;
+};
+
+type TrainingRepositoryModule = {
+  saveAccount: (handle: string) => void;
+  applyReviewAction: (problemId: string, action: ReviewAction) => unknown | null;
+};
+
 const PARTICIPATION_STATUSES: (ParticipationStatus | "")[] = [
   "planned",
   "participated",
   "skipped",
   "",
 ];
+
+const REVIEW_ACTIONS: ReviewAction[] = ["solved", "again", "drop"];
 
 function readBody(request: IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -131,6 +150,84 @@ export function devWriteApi(): AstroIntegration {
             savePreferences(parseBody(body) as Partial<UserPreferences>);
 
             return { status: 200, json: { ok: true } };
+          },
+
+          "/api/training/account": async ({ body }) => {
+            if (isDemoMode()) {
+              return {
+                status: 403,
+                json: { error: "Imports are disabled in demo mode" },
+              };
+            }
+
+            const { handle } = parseBody(body);
+
+            if (typeof handle !== "string" || !handle.trim()) {
+              return { status: 400, json: { error: "Invalid handle" } };
+            }
+
+            const trimmed = handle.trim();
+
+            try {
+              const { saveAccount } =
+                await load<TrainingRepositoryModule>(
+                  "/src/lib/training/repository.ts"
+                );
+              saveAccount(trimmed);
+
+              const { importCodeforcesData } =
+                await load<TrainingImportModule>(
+                  "/src/lib/training/import.ts"
+                );
+              const summary = await importCodeforcesData(trimmed);
+
+              return {
+                status: 200,
+                json: {
+                  ok: true,
+                  problems: summary.problems,
+                  submissions: summary.submissions,
+                  solved: summary.solved,
+                  queuedReviews: summary.queuedReviews,
+                  closedReviews: summary.closedReviews,
+                  importedAt: summary.importedAt.toISOString(),
+                },
+              };
+            } catch (error) {
+              return {
+                status: 502,
+                json: {
+                  error:
+                    error instanceof Error ? error.message : "Import failed",
+                },
+              };
+            }
+          },
+
+          "/api/training/reviews": async ({ body }) => {
+            const { problemId, action } = parseBody(body);
+
+            if (
+              typeof problemId !== "string" ||
+              !REVIEW_ACTIONS.includes(action as ReviewAction)
+            ) {
+              return { status: 400, json: { error: "Invalid review action" } };
+            }
+
+            const { applyReviewAction } =
+              await load<TrainingRepositoryModule>(
+                "/src/lib/training/repository.ts"
+              );
+            const review = applyReviewAction(
+              problemId,
+              action as ReviewAction
+            ) as { status: string } | null;
+
+            if (!review) {
+              return { status: 404, json: { error: "Review not found" } };
+            }
+
+            return { status: 200, json: { ok: true, status: review.status } };
           },
 
           "/api/sync": async () => {

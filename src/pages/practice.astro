@@ -1,0 +1,392 @@
+---
+import Layout from "../components/Layout.astro";
+import {
+  countProblems,
+  countSubmissions,
+  getAccount,
+  getReviewCounts,
+  getSolvedProblemIds,
+  getTrainingState,
+  listReviews,
+} from "../lib/training/repository";
+import type { ReviewEntry } from "../lib/training/types";
+
+const now = new Date();
+const account = getAccount("codeforces");
+const counts = getReviewCounts(now);
+const reviews = listReviews();
+
+const active = reviews.filter(
+  (entry) =>
+    entry.review.status === "due" || entry.review.status === "scheduled"
+);
+const due = active.filter((entry) => entry.review.dueAt <= now);
+const upcoming = active.filter((entry) => entry.review.dueAt > now);
+
+const lastImport = getTrainingState("last_import_at");
+const problemCount = countProblems();
+const submissionCount = countSubmissions();
+const solvedCount = getSolvedProblemIds("codeforces").size;
+
+const lastImportLabel = lastImport
+  ? new Date(lastImport).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  : null;
+
+function dueLabel(entry: ReviewEntry): string {
+  const diffMs = entry.review.dueAt.getTime() - now.getTime();
+  const days = Math.round(Math.abs(diffMs) / 86_400_000);
+
+  if (diffMs <= 0) {
+    return days <= 0 ? "due now" : `${days}d overdue`;
+  }
+
+  return days <= 1 ? "tomorrow" : `in ${days}d`;
+}
+
+const sections = [
+  { title: "Due", entries: due },
+  { title: "Upcoming", entries: upcoming },
+];
+---
+
+<Layout
+  title="Practice — Termin"
+  active="practice"
+  description="Upsolve the problems you did not finish, on a spaced schedule."
+>
+  <div class="page-head">
+    <div>
+      <h1>Practice</h1>
+      <p class="subtitle">
+        Problems from contests you joined that still have no accepted
+        submission.
+      </p>
+    </div>
+
+    <div class="practice-counts">
+      <span class="chip chip-warning">{counts.due} due</span>
+      <span class="chip">{counts.upcoming} scheduled</span>
+      <span class="chip chip-success">{counts.done} done</span>
+    </div>
+  </div>
+
+  {!account ? (
+    <section class="empty-state">
+      <h3>Link a Codeforces handle</h3>
+      <p>
+        Termin imports your submissions and the problem catalog, then queues
+        every problem you did not solve from contests you attended.
+      </p>
+      <a class="btn btn-primary empty-action" href="/settings">
+        Open settings
+      </a>
+    </section>
+  ) : problemCount === 0 ? (
+    <section class="empty-state">
+      <h3>No catalog yet</h3>
+      <p>
+        The handle <strong>{account.handle}</strong> is linked, but no problems
+        have been imported. Run an import from settings.
+      </p>
+      <a class="btn btn-primary empty-action" href="/settings">Import now</a>
+    </section>
+  ) : (
+    <>
+      <section class="meta-line">
+        <span>
+          <strong>{problemCount}</strong> problems ·{" "}
+          <strong>{submissionCount}</strong> submissions ·{" "}
+          <strong>{solvedCount}</strong> solved
+        </span>
+        {lastImportLabel && (
+          <span>
+            {account.handle} · imported {lastImportLabel}
+          </span>
+        )}
+      </section>
+
+      {due.length === 0 && upcoming.length === 0 && (
+        <section class="empty-state">
+          <h3>Nothing to upsolve</h3>
+          <p>
+            Every problem from your attended contests has an accepted
+            submission. Mark a contest as participated and import again after
+            the next round.
+          </p>
+        </section>
+      )}
+
+      {sections.map(
+        (section) =>
+          section.entries.length > 0 && (
+            <section>
+              <div class="section-heading">
+                <h2>{section.title}</h2>
+                <span>{section.entries.length}</span>
+              </div>
+
+              <ul class="reviews">
+                {section.entries.map((entry) => (
+                  <li class="review" data-problem={entry.problem.id}>
+                    <div class="review-main">
+                      <a
+                        class="review-name"
+                        href={entry.problem.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {entry.problem.name}
+                        <span class="external-link" aria-hidden="true">↗</span>
+                      </a>
+                      <div class="review-meta">
+                        <span class="chip chip-mono">{entry.problem.index}</span>
+                        {entry.problem.rating && (
+                          <span class="review-rating">
+                            {entry.problem.rating}
+                          </span>
+                        )}
+                        <span class="review-tags">
+                          {entry.problem.tags.slice(0, 3).join(" · ")}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="review-side">
+                      <span
+                        class:list={[
+                          "review-when",
+                          { overdue: entry.review.dueAt <= now },
+                        ]}
+                      >
+                        {dueLabel(entry)}
+                      </span>
+                      <div class="review-actions">
+                        <button
+                          class="btn btn-ghost btn-sm"
+                          data-action="solved"
+                          data-problem={entry.problem.id}
+                        >
+                          Solved
+                        </button>
+                        <button
+                          class="btn btn-ghost btn-sm"
+                          data-action="again"
+                          data-problem={entry.problem.id}
+                        >
+                          Again
+                        </button>
+                        <button
+                          class="btn btn-ghost btn-sm"
+                          data-action="drop"
+                          data-problem={entry.problem.id}
+                        >
+                          Drop
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )
+      )}
+    </>
+  )}
+</Layout>
+
+<script>
+  import { showToast } from "../lib/ui/toast";
+
+  const buttons = document.querySelectorAll<HTMLButtonElement>(
+    "[data-action][data-problem]"
+  );
+
+  buttons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const problemId = button.dataset.problem;
+      const action = button.dataset.action;
+
+      if (!problemId || !action) {
+        return;
+      }
+
+      button.disabled = true;
+
+      try {
+        const response = await fetch("/api/training/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ problemId, action }),
+        });
+
+        if (response.status === 404) {
+          showToast("Reviews need the dev server (npm run dev)", "error");
+          return;
+        }
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error ?? "Could not update the review");
+        }
+
+        window.location.reload();
+      } catch (error) {
+        showToast(
+          error instanceof Error ? error.message : "Could not update the review",
+          "error"
+        );
+      } finally {
+        button.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .practice-counts {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .meta-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    color: var(--text-dim);
+    font-size: 0.8125rem;
+    padding-bottom: 4px;
+  }
+
+  .meta-line strong {
+    color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .reviews {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1px;
+    background: var(--border-subtle);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .review {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+
+  .review-main {
+    min-width: 0;
+    display: grid;
+    gap: 6px;
+  }
+
+  .review-name {
+    color: var(--text);
+    font-weight: 550;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .review-name:hover {
+    color: var(--brand);
+  }
+
+  /* The global external-link affordance is hover-only; outbound problems are
+     the point of this page, so keep it faintly visible at rest. */
+  .review-name .external-link {
+    opacity: 0.45;
+  }
+
+  .review-name:hover .external-link,
+  .review-name:focus-visible .external-link {
+    opacity: 1;
+  }
+
+  .review-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
+  .review-rating {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+  }
+
+  .review-tags {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 40ch;
+  }
+
+  .review-side {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .review-when {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    color: var(--text-dim);
+    min-width: 7ch;
+    text-align: right;
+  }
+
+  .review-when.overdue {
+    color: var(--warning);
+  }
+
+  .review-actions {
+    display: flex;
+    gap: 4px;
+  }
+
+  .btn-sm {
+    height: 26px;
+    padding: 0 8px;
+    font-size: 0.6875rem;
+  }
+
+  .empty-action {
+    margin-top: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .review {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .review-side {
+      width: 100%;
+      justify-content: space-between;
+    }
+  }
+</style>

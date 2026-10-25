@@ -4,8 +4,27 @@ import { getPreferences } from "../lib/preferences/repository";
 import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
 import { platformMonogram, platformName } from "../lib/contests/platforms";
 import type { ContestPlatform } from "../lib/contests/types";
+import {
+  countProblems,
+  getAccount,
+  getSolvedProblemIds,
+  getTrainingState,
+} from "../lib/training/repository";
 
 const preferences = getPreferences();
+const trainingAccount = getAccount("codeforces");
+const lastImport = getTrainingState("last_import_at");
+const problemCount = countProblems();
+const solvedCount = getSolvedProblemIds("codeforces").size;
+
+const lastImportLabel = lastImport
+  ? new Date(lastImport).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  : null;
 const enabledSet = new Set<string>(preferences.enabledPlatforms);
 
 const PLATFORM_NOTES: Record<ContestPlatform, string> = {
@@ -66,6 +85,40 @@ const PLATFORM_NOTES: Record<ContestPlatform, string> = {
       </span>
     </div>
   </form>
+
+  <section class="training">
+    <div class="section-heading">
+      <h2>Training</h2>
+      <span>Codeforces</span>
+    </div>
+
+    <p class="training-note">
+      Import your submissions to queue every problem you did not solve from
+      contests you marked as participated.
+    </p>
+
+    <div class="training-row">
+      <input
+        id="cf-handle"
+        class="text-input"
+        type="text"
+        placeholder="Codeforces handle"
+        value={trainingAccount?.handle ?? ""}
+        autocomplete="off"
+        spellcheck="false"
+        aria-label="Codeforces handle"
+      />
+      <button id="import-button" class="btn btn-primary" type="button">
+        Link &amp; import
+      </button>
+    </div>
+
+    <p class="form-hint" id="import-status">
+      {lastImportLabel
+        ? `Last import ${lastImportLabel} · ${problemCount} problems · ${solvedCount} solved`
+        : `Never imported · ${problemCount} problems · ${solvedCount} solved`}
+    </p>
+  </section>
 </Layout>
 
 <script>
@@ -194,4 +247,124 @@ const PLATFORM_NOTES: Record<ContestPlatform, string> = {
     font-size: 0.6875rem;
     color: var(--text-dim);
   }
+  .training {
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-subtle);
+    max-width: 720px;
+  }
+
+  .training-note {
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    margin: 0 0 12px;
+    max-width: 62ch;
+  }
+
+  .training-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .text-input {
+    flex: 1;
+    min-width: 220px;
+    height: 34px;
+    padding: 0 10px;
+    color: var(--text);
+    background: var(--surface-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+  }
+
+  .text-input::placeholder {
+    color: var(--text-dim);
+  }
+
+  .text-input:focus-visible {
+    outline: none;
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  #import-status {
+    margin-top: 10px;
+  }
 </style>
+
+<script>
+  import { showToast } from "../lib/ui/toast";
+
+  const handleInput = document.getElementById(
+    "cf-handle"
+  ) as HTMLInputElement | null;
+  const importButton = document.getElementById(
+    "import-button"
+  ) as HTMLButtonElement | null;
+  const importStatus = document.getElementById("import-status");
+
+  // The handle field is outside the preferences form, so Enter needs its own
+  // shortcut to the import button.
+  handleInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      importButton?.click();
+    }
+  });
+
+  importButton?.addEventListener("click", async () => {
+    const handle = handleInput?.value.trim() ?? "";
+
+    if (!handle) {
+      showToast("Enter a Codeforces handle", "error");
+      return;
+    }
+
+    const original = importButton.textContent ?? "Link & import";
+    importButton.disabled = true;
+    importButton.textContent = "Importing…";
+
+    if (importStatus) {
+      importStatus.textContent = "Fetching problems and submissions…";
+    }
+
+    try {
+      const response = await fetch("/api/training/account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ handle }),
+      });
+
+      if (response.status === 404) {
+        showToast("Imports need the dev server (npm run dev)", "error");
+        return;
+      }
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Import failed");
+      }
+
+      showToast(
+        `Imported ${data.problems} problems · ${data.solved} solved · ${data.queuedReviews} queued`
+      );
+      window.setTimeout(() => window.location.reload(), 1200);
+    } catch (error) {
+      showToast(
+        error instanceof Error ? error.message : "Import failed",
+        "error"
+      );
+      if (importStatus) {
+        importStatus.textContent = "Import failed — try again.";
+      }
+    } finally {
+      importButton.disabled = false;
+      importButton.textContent = original;
+    }
+  });
+</script>

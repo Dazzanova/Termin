@@ -6,7 +6,7 @@ import { isDemoMode } from "../lib/demo";
 
 interface Props {
   title: string;
-  active: "contests" | "planning" | "history" | "settings";
+  active: "contests" | "planning" | "practice" | "history" | "settings";
   description?: string;
 }
 
@@ -15,6 +15,7 @@ const { title, active, description } = Astro.props;
 const nav = [
   { href: "/", label: "Contests", key: "contests" },
   { href: "/planning", label: "Planning", key: "planning" },
+  { href: "/practice", label: "Practice", key: "practice" },
   { href: "/history", label: "History", key: "history" },
   { href: "/settings", label: "Settings", key: "settings" },
 ] as const;
