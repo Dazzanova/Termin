@@ -8,6 +8,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Weakness profile and practice suggestions.** A third import call reads
+  Codeforces rating history. The new `/profile` page shows current and peak
+  rating with a chart, ranks tags by solve rate and median solved rating, and
+  suggests five untried problems from the weakest tags between your rating and
+  +200. **Open & queue** opens the problem and adds it to the review queue.
+- Migration `004_rating_history.sql` for the cached rating series.
 - **Practice loop, phase 1–2.** Link a Codeforces handle to import the public
   problem catalog and your submission history, then upsolve the problems you
   did not solve from contests you marked as participated. Failures come back on
