@@ -6,6 +6,7 @@ import {
   markSyncCompleted,
 } from "../lib/contests/sync-state";
 import {
+  replaceRatingHistory,
   replaceSubmissions,
   saveAccount,
   saveProblems,
@@ -38,6 +39,7 @@ export function seedDemoData(now: Date = new Date()): void {
   saveAccount(training.handle, "codeforces");
   saveProblems(training.problems);
   replaceSubmissions(training.submissions, "codeforces");
+  replaceRatingHistory(training.ratings, "codeforces");
 
   for (const review of training.reviews) {
     saveReview(review);

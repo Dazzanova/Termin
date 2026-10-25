@@ -77,4 +77,25 @@ describe("demo dataset", () => {
     );
     expect(statuses.filter((status) => status === "skipped")).toHaveLength(2);
   });
+
+  it("seeds enough training data for a populated profile", () => {
+    const ratings = dataset.training.ratings;
+
+    expect(ratings).toHaveLength(7);
+    expect(ratings.at(-1)?.newRating).toBe(1520);
+    expect(Math.max(...ratings.map((entry) => entry.newRating))).toBe(1560);
+
+    const weakTagAttempts = new Set(
+      dataset.training.submissions
+        .map((entry) =>
+          dataset.training.problems.find(
+            (problem) => problem.id === entry.problemId
+          )
+        )
+        .filter((problem) => problem?.tags.includes("dp"))
+        .map((problem) => problem?.id)
+    );
+
+    expect(weakTagAttempts.size).toBe(3);
+  });
 });
