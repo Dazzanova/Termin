@@ -11,11 +11,11 @@ import {
   getTrainingState,
 } from "../lib/training/repository";
 
-const preferences = getPreferences();
-const trainingAccount = getAccount("codeforces");
-const lastImport = getTrainingState("last_import_at");
-const problemCount = countProblems();
-const solvedCount = getSolvedProblemIds("codeforces").size;
+const preferences = await getPreferences();
+const trainingAccount = await getAccount("codeforces");
+const lastImport = await getTrainingState("last_import_at");
+const problemCount = await countProblems();
+const solvedCount = (await getSolvedProblemIds("codeforces")).size;
 
 const lastImportLabel = lastImport
   ? new Date(lastImport).toLocaleDateString("en-GB", {

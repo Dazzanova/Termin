@@ -1,6 +1,6 @@
 import type { Contest } from "./types";
 import type { UserPreferences } from "../preferences/types";
-import { getParticipationStatus, getContestHistory } from "./repository";
+import { listPlannedContestIds, getContestHistory } from "./repository";
 
 export type RecommendationReason =
   | "Matches your preferred platform"
@@ -22,26 +22,17 @@ export type Recommendation = {
  * That single signal drives the score boost, conflict detection, and the
  * weekly capacity meter.
  */
-function getPlannedContestIds(contests: Contest[]): Set<string> {
-  return new Set(
-    contests
-      .filter((contest) => getParticipationStatus(contest.id) === "planned")
-      .map((contest) => contest.id)
-  );
-}
-
-export function calculateRecommendations(
+export async function calculateRecommendations(
   contests: Contest[],
   preferences: UserPreferences
-): Recommendation[] {
-  const history = getContestHistory();
+): Promise<Recommendation[]> {
+  const history = await getContestHistory();
+  const plannedIds = await listPlannedContestIds();
   const platformParticipationCounts: Record<string, number> = {};
 
   history.forEach(entry => {
     platformParticipationCounts[entry.platform] = (platformParticipationCounts[entry.platform] || 0) + 1;
   });
-
-  const plannedIds = getPlannedContestIds(contests);
 
   const recommendations = contests.map(contest => {
     let score = 0;
@@ -128,11 +119,11 @@ export function calculateRecommendations(
   });
 }
 
-export function getWeeklyCapacity(
+export async function getWeeklyCapacity(
   contests: Contest[],
   preferences: UserPreferences
-): { remaining: number; total: number } {
-  const plannedIds = getPlannedContestIds(contests);
+): Promise<{ remaining: number; total: number }> {
+  const plannedIds = await listPlannedContestIds();
 
   // Count planned contests for the current week
   const now = new Date();

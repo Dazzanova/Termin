@@ -17,6 +17,8 @@
     "import": "tsx src/scripts/import.ts"
   },
   "dependencies": {
+    "@astrojs/node": "^11.1.9",
+    "@libsql/client": "^0.18.0",
     "astro": "^7.3.3",
     "better-sqlite3": "^13.0.3"
   },

@@ -1,21 +1,35 @@
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
+import { MIGRATIONS } from "./migrations/index";
 import { runMigrations } from "./migrate";
 
-const dbPath = process.env.TERMIN_DB_PATH ?? ".data/termin.db";
+const remoteUrl = process.env.TURSO_DATABASE_URL;
 
-if (dbPath !== ":memory:") {
-  mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+function resolveUrl(): string {
+  if (remoteUrl) {
+    return remoteUrl;
+  }
+
+  const dbPath = process.env.TERMIN_DB_PATH ?? ".data/termin.db";
+
+  if (dbPath === ":memory:") {
+    return ":memory:";
+  }
+
+  const absolute = path.resolve(dbPath);
+  mkdirSync(path.dirname(absolute), { recursive: true });
+
+  return `file:${absolute}`;
 }
 
-const db = new Database(dbPath);
+export const client = createClient({
+  url: resolveUrl(),
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS contests (
+const BASE_TABLES = [
+  `CREATE TABLE IF NOT EXISTS contests (
     id TEXT PRIMARY KEY,
     platform TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -23,46 +37,62 @@ db.exec(`
     duration_seconds INTEGER NOT NULL,
     url TEXT NOT NULL,
     updated_at TEXT NOT NULL
-  )
-`);
-
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_contests_start_time
-  ON contests (start_time)
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS reminders(
-  id TEXT PRIMARY KEY,
-  contest_id TEXT NOT NULL,
-  minutes_before INTEGER NOT NULL,
-  remind_at TEXT NOT NULL,
-  sent_at TEXT,
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_contests_start_time
+    ON contests (start_time)`,
+  `CREATE TABLE IF NOT EXISTS reminders (
+    id TEXT PRIMARY KEY,
+    contest_id TEXT NOT NULL,
+    minutes_before INTEGER NOT NULL,
+    remind_at TEXT NOT NULL,
+    sent_at TEXT,
     UNIQUE(contest_id, minutes_before)
-  )
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS participation (
+  )`,
+  `CREATE TABLE IF NOT EXISTS participation (
     contest_id TEXT PRIMARY KEY,
     status TEXT NOT NULL CHECK (status IN ('planned', 'participated', 'skipped')),
     updated_at TEXT NOT NULL,
     FOREIGN KEY (contest_id) REFERENCES contests(id)
-  )
-`);
-
-db.exec(`
-  CREATE INDEX IF NOT EXISTS idx_participation_status
-  ON participation (status)
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS preferences (
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_participation_status
+    ON participation (status)`,
+  `CREATE TABLE IF NOT EXISTS preferences (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     enabled_platforms TEXT NOT NULL
-  )
-`);
+  )`,
+  `CREATE TABLE IF NOT EXISTS app_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )`,
+];
 
-runMigrations(db);
+async function initialize(): Promise<void> {
+  if (!remoteUrl) {
+    // Remote libSQL manages these itself, and rejects journal-mode changes.
+    await client.execute("PRAGMA journal_mode = WAL");
+    await client.execute("PRAGMA foreign_keys = ON");
+  }
 
-export default db;
+  await client.batch(
+    BASE_TABLES.map((sql) => ({ sql })),
+    "write"
+  );
+
+  await runMigrations(client, MIGRATIONS);
+}
+
+let readyPromise: Promise<void> | null = null;
+
+/**
+ * Creates the base tables and applies pending migrations exactly once.
+ * Repository functions await this, so callers never have to sequence startup.
+ */
+export function ready(): Promise<void> {
+  if (!readyPromise) {
+    readyPromise = initialize();
+  }
+
+  return readyPromise;
+}
+
+export default client;

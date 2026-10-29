@@ -1,8 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
-import { devWriteApi } from './src/dev/write-api.ts';
+import node from '@astrojs/node';
 
 // https://astro.build/config
 export default defineConfig({
-  integrations: [devWriteApi()],
+  output: 'server',
+  adapter: node({ mode: 'standalone' }),
 });

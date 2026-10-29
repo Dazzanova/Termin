@@ -38,16 +38,16 @@ export function createReminder(
   };
 }
 
-export function scheduleReminders(
+export async function scheduleReminders(
   contest: Contest,
   now: Date = new Date()
-): Reminder[] {
+): Promise<Reminder[]> {
   const reminders = DEFAULT_REMINDER_OFFSETS
     .map((offset) => createReminder(contest, offset))
     .filter((reminder) => reminder.remindAt > now);
 
   for (const reminder of reminders) {
-    saveReminder(reminder);
+    await saveReminder(reminder);
   }
 
   return reminders;

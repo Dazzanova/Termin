@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Contest } from "./types";
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import { scheduleReminders } from "../reminders/schedule";
 
 vi.mock("../reminders/schedule", () => ({
@@ -69,8 +69,9 @@ const mockedLeetCode = vi.mocked(getLeetCodeContests);
 const mockedScheduleReminders =
   vi.mocked(scheduleReminders);
 
-beforeEach(() => {
-  db.exec("DELETE FROM contests");
+beforeEach(async () => {
+  await ready();
+  await client.execute("DELETE FROM contests");
 
   vi.clearAllMocks();
 
@@ -88,7 +89,7 @@ describe("syncContests", () => {
 
     const result = await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -122,13 +123,13 @@ describe("syncContests", () => {
       name: "Updated Name",
     });
 
-    saveContests([original]);
+    await saveContests([original]);
 
     mockedCodeforces.mockResolvedValue([updated]);
 
     await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -147,13 +148,13 @@ describe("syncContests", () => {
       name: "Current Contest",
     });
 
-    saveContests([stale]);
+    await saveContests([stale]);
 
     mockedCodeforces.mockResolvedValue([current]);
 
     await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -173,7 +174,7 @@ describe("syncContests", () => {
       url: "https://atcoder.jp/contests/abc123",
     });
 
-    saveContests([
+    await saveContests([
       codeforcesContest,
       atcoderContest,
     ]);
@@ -189,7 +190,7 @@ describe("syncContests", () => {
     await syncContests();
 
     const atcoderStored =
-      getUpcomingStoredContestsByPlatform("atcoder");
+      await getUpcomingStoredContestsByPlatform("atcoder");
 
     expect(atcoderStored).toHaveLength(1);
     expect(atcoderStored[0].id).toBe("atcoder:abc123");
@@ -201,7 +202,7 @@ describe("syncContests", () => {
       name: "Existing Contest",
     });
 
-    saveContests([existing]);
+    await saveContests([existing]);
 
     mockedCodeforces.mockRejectedValue(
       new Error("Codeforces unavailable")
@@ -209,7 +210,7 @@ describe("syncContests", () => {
 
     const result = await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -234,7 +235,7 @@ describe("syncContests", () => {
       name: "Existing Contest",
     });
 
-    saveContests([existing]);
+    await saveContests([existing]);
 
     const invalid = makeContest({
       id: "",
@@ -245,7 +246,7 @@ describe("syncContests", () => {
 
     await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -276,7 +277,7 @@ describe("syncContests", () => {
 
     const result = await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -306,10 +307,10 @@ describe("syncContests", () => {
     const result = await syncContests();
 
     const codeforcesStored =
-      getUpcomingStoredContestsByPlatform("codeforces");
+      await getUpcomingStoredContestsByPlatform("codeforces");
 
     const atcoderStored =
-      getUpcomingStoredContestsByPlatform("atcoder");
+      await getUpcomingStoredContestsByPlatform("atcoder");
 
     expect(codeforcesStored).toHaveLength(0);
     expect(atcoderStored).toHaveLength(1);
@@ -339,7 +340,7 @@ describe("syncContests", () => {
       name: "Broken Contest",
     });
 
-    saveContests([existing]);
+    await saveContests([existing]);
 
     mockedCodeforces.mockResolvedValue([
       valid,
@@ -348,7 +349,7 @@ describe("syncContests", () => {
 
     await syncContests();
 
-    const stored = getUpcomingStoredContestsByPlatform(
+    const stored = await getUpcomingStoredContestsByPlatform(
       "codeforces"
     );
 
@@ -442,7 +443,7 @@ describe("syncContests", () => {
       name: "Broken Contest",
     });
 
-    saveContests([existing]);
+    await saveContests([existing]);
 
     mockedCodeforces.mockResolvedValue([invalid]);
     mockedAtCoder.mockResolvedValue([valid]);
@@ -452,10 +453,10 @@ describe("syncContests", () => {
     const result = await syncContests();
 
     const codeforcesStored =
-      getUpcomingStoredContestsByPlatform("codeforces");
+      await getUpcomingStoredContestsByPlatform("codeforces");
 
     const atcoderStored =
-      getUpcomingStoredContestsByPlatform("atcoder");
+      await getUpcomingStoredContestsByPlatform("atcoder");
 
     expect(result.failedProviders).toContain("codeforces");
     expect(result.contests).toHaveLength(1);

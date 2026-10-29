@@ -18,25 +18,28 @@ export type UpsolveResult = {
  * review. Problems solved since the last import close their review instead, so
  * a sync can retire work you already finished outside Termin.
  */
-export function rebuildUpsolveQueue(
+export async function rebuildUpsolveQueue(
   now: Date = new Date()
-): UpsolveResult {
-  const solved = getSolvedProblemIds("codeforces");
+): Promise<UpsolveResult> {
+  const solved = await getSolvedProblemIds("codeforces");
   let queued = 0;
   let closed = 0;
 
-  for (const contest of getAttendedContests()) {
+  for (const contest of await getAttendedContests()) {
     // Only Codeforces is importable for now; other platforms have no catalog.
     if (contest.platform !== "codeforces") {
       continue;
     }
 
-    for (const problem of getProblemsByContest(contest.id, "codeforces")) {
+    for (const problem of await getProblemsByContest(
+      contest.id,
+      "codeforces"
+    )) {
       if (solved.has(problem.id)) {
-        if (closeReview(problem.id, now)) {
+        if (await closeReview(problem.id, now)) {
           closed += 1;
         }
-      } else if (ensureReview(problem.id, now)) {
+      } else if (await ensureReview(problem.id, now)) {
         queued += 1;
       }
     }

@@ -11,14 +11,16 @@ import {
 import { calculateBehavioralInsights } from "../lib/contests/insights";
 import { platformName } from "../lib/contests/platforms";
 
-const preferences = getPreferences();
-const contests = getUpcomingStoredContests(preferences.enabledPlatforms);
-const recommendations = calculateRecommendations(
+const preferences = await getPreferences();
+const contests = await getUpcomingStoredContests(
+  preferences.enabledPlatforms
+);
+const recommendations = await calculateRecommendations(
   contests,
   preferences
 );
-const capacity = getWeeklyCapacity(contests, preferences);
-const insights = calculateBehavioralInsights();
+const capacity = await getWeeklyCapacity(contests, preferences);
+const insights = await calculateBehavioralInsights();
 
 const priorityClass: Record<Recommendation["priorityLabel"], string> = {
   High: "chip-accent",

@@ -48,7 +48,7 @@ export type SyncResult = {
 };
 
 export async function syncContests(): Promise<SyncResult> {
-  markSyncStarted();
+  await markSyncStarted();
 
   const allContests: Contest[] = [];
   const allChanges: ContestChange[] = [];
@@ -58,20 +58,20 @@ export async function syncContests(): Promise<SyncResult> {
     providers.map((provider) => provider.getContests())
   );
 
-  results.forEach((result, index) => {
+  for (const [index, result] of results.entries()) {
     const provider = providers[index];
 
     if (result.status === "rejected") {
       failedProviders.push(provider.platform);
 
-      markProviderFailure(provider.platform, result.reason);
+      await markProviderFailure(provider.platform, result.reason);
 
       console.error(
         `Failed to fetch ${provider.platform} contests:`,
         result.reason
       );
 
-      return;
+      continue;
     }
 
     const validation = validateProviderContests(
@@ -82,7 +82,7 @@ export async function syncContests(): Promise<SyncResult> {
     if (validation.invalidCount > 0) {
       failedProviders.push(provider.platform);
 
-      markProviderFailure(
+      await markProviderFailure(
         provider.platform,
         new Error(`${validation.invalidCount} invalid contest(s)`)
       );
@@ -91,12 +91,12 @@ export async function syncContests(): Promise<SyncResult> {
         `${provider.platform} returned ${validation.invalidCount} invalid contest(s); preserving existing data`
       );
 
-      return;
+      continue;
     }
 
     const validContests = validation.contests;
 
-    const previous = getUpcomingStoredContestsByPlatform(
+    const previous = await getUpcomingStoredContestsByPlatform(
       provider.platform
     );
 
@@ -105,16 +105,16 @@ export async function syncContests(): Promise<SyncResult> {
       validContests
     );
 
-    const removed = syncProviderContests(
+    const removed = await syncProviderContests(
       provider.platform,
       validContests
     );
 
     for (const contest of validContests) {
-      scheduleReminders(contest);
+      await scheduleReminders(contest);
     }
 
-    markProviderSuccess(provider.platform);
+    await markProviderSuccess(provider.platform);
 
     if (removed > 0) {
       console.log(
@@ -124,9 +124,9 @@ export async function syncContests(): Promise<SyncResult> {
 
     allContests.push(...validContests);
     allChanges.push(...changes);
-  });
+  }
 
-  markSyncCompleted(failedProviders.length === 0);
+  await markSyncCompleted(failedProviders.length === 0);
 
   return {
     contests: allContests,

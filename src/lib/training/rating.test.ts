@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import {
   listProblems,
   listRatingHistory,
@@ -39,41 +39,42 @@ const RATING: RatingEntry = {
   ratedAt: new Date("2026-10-02T12:00:00.000Z"),
 };
 
-beforeEach(() => {
-  db.exec("DELETE FROM rating_history");
-  db.exec("DELETE FROM problem_reviews");
-  db.exec("DELETE FROM submissions");
-  db.exec("DELETE FROM problems");
+beforeEach(async () => {
+  await ready();
+  await client.execute("DELETE FROM rating_history");
+  await client.execute("DELETE FROM problem_reviews");
+  await client.execute("DELETE FROM submissions");
+  await client.execute("DELETE FROM problems");
 });
 
 describe("listProblems and listSubmissions", () => {
-  it("returns the imported catalog and history", () => {
-    saveProblems([PROBLEM]);
-    replaceSubmissions([SUBMISSION]);
+  it("returns the imported catalog and history", async () => {
+    await saveProblems([PROBLEM]);
+    await replaceSubmissions([SUBMISSION]);
 
-    expect(listProblems()).toEqual([PROBLEM]);
-    expect(listSubmissions()).toEqual([SUBMISSION]);
+    expect(await listProblems()).toEqual([PROBLEM]);
+    expect(await listSubmissions()).toEqual([SUBMISSION]);
   });
 });
 
 describe("rating history", () => {
-  it("round-trips rows in rated order", () => {
+  it("round-trips rows in rated order", async () => {
     const later: RatingEntry = {
       ...RATING,
       contestId: "1002",
       ratedAt: new Date("2026-10-09T12:00:00.000Z"),
     };
 
-    replaceRatingHistory([later, RATING]);
+    await replaceRatingHistory([later, RATING]);
 
-    expect(listRatingHistory()).toEqual([RATING, later]);
+    expect(await listRatingHistory()).toEqual([RATING, later]);
   });
 
-  it("replaces rather than appends", () => {
-    replaceRatingHistory([RATING]);
-    replaceRatingHistory([{ ...RATING, newRating: 1500 }]);
+  it("replaces rather than appends", async () => {
+    await replaceRatingHistory([RATING]);
+    await replaceRatingHistory([{ ...RATING, newRating: 1500 }]);
 
-    expect(listRatingHistory()).toHaveLength(1);
-    expect(listRatingHistory()[0].newRating).toBe(1500);
+    expect(await listRatingHistory()).toHaveLength(1);
+    expect((await listRatingHistory())[0].newRating).toBe(1500);
   });
 });

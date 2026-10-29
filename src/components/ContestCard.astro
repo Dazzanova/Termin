@@ -11,7 +11,7 @@ interface Props {
 }
 
 const { contest, showDate = true } = Astro.props;
-const currentStatus = getParticipationStatus(contest.id);
+const currentStatus = await getParticipationStatus(contest.id);
 
 const dateLabel = contest.startTime.toLocaleDateString("en-GB", {
   weekday: "short",

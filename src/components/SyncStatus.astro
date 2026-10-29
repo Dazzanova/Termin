@@ -6,7 +6,7 @@ interface Props {
   syncState?: SyncState;
 }
 
-const syncState = Astro.props.syncState ?? getSyncState();
+const syncState = Astro.props.syncState ?? (await getSyncState());
 
 function formatTimeAgo(date: Date | null): string {
   if (!date) return "never";

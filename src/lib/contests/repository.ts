@@ -1,4 +1,4 @@
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import type { Contest, ContestPlatform, ParticipationStatus } from "./types";
 
 type ContestRow = {
@@ -28,66 +28,17 @@ function rowToContest(row: ContestRow): Contest {
   };
 }
 
-const getUpcomingContestsStatement = db.prepare(`
-  SELECT
-    id,
-    platform,
-    name,
-    start_time,
-    duration_seconds,
-    url,
-    updated_at
-  FROM contests
-  WHERE start_time > ?
-  ORDER BY start_time ASC
-`);
+const CONTEST_COLUMNS = `
+  id,
+  platform,
+  name,
+  start_time,
+  duration_seconds,
+  url,
+  updated_at
+`;
 
-const getUpcomingContestsByPlatformStatement = db.prepare(`
-  SELECT
-    id,
-    platform,
-    name,
-    start_time,
-    duration_seconds,
-    url,
-    updated_at
-  FROM contests
-  WHERE platform = ? AND start_time > ?
-  ORDER BY start_time ASC
-`);
-
-const getParticipationStatement = db.prepare(`
-  SELECT status FROM participation WHERE contest_id = ?
-`);
-
-const saveParticipationStatement = db.prepare(`
-  INSERT INTO participation (contest_id, status, updated_at)
-  VALUES (@contest_id, @status, @updated_at)
-  ON CONFLICT(contest_id) DO UPDATE SET
-    status = excluded.status,
-    updated_at = excluded.updated_at
-`);
-
-const deleteParticipationStatement = db.prepare(`
-  DELETE FROM participation WHERE contest_id = ?
-`);
-
-const getHistoryStatement = db.prepare(`
-  SELECT
-    c.id,
-    c.platform,
-    c.name,
-    c.start_time,
-    c.duration_seconds,
-    c.url,
-    p.status
-  FROM contests c
-  JOIN participation p ON c.id = p.contest_id
-  WHERE c.start_time < ?
-  ORDER BY c.start_time DESC
-`);
-
-const upsertContestStatement = db.prepare(`
+const UPSERT_CONTEST = `
   INSERT INTO contests (
     id,
     platform,
@@ -97,15 +48,7 @@ const upsertContestStatement = db.prepare(`
     url,
     updated_at
   )
-  VALUES (
-    @id,
-    @platform,
-    @name,
-    @start_time,
-    @duration_seconds,
-    @url,
-    @updated_at
-  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT(id) DO UPDATE SET
     platform = excluded.platform,
     name = excluded.name,
@@ -113,18 +56,25 @@ const upsertContestStatement = db.prepare(`
     duration_seconds = excluded.duration_seconds,
     url = excluded.url,
     updated_at = excluded.updated_at
-`);
+`;
 
-const deleteContestStatement = db.prepare(`
-  DELETE FROM contests
-  WHERE id = ?
-    AND start_time > ?
-    AND platform = ?
-`);
+function upsertArgs(contest: Contest, updatedAt: string) {
+  return [
+    contest.id,
+    contest.platform,
+    contest.name,
+    contest.startTime.toISOString(),
+    contest.durationSeconds,
+    contest.url,
+    updatedAt,
+  ];
+}
 
-export function getUpcomingStoredContests(
+export async function getUpcomingStoredContests(
   platforms?: ContestPlatform[]
-): Contest[] {
+): Promise<Contest[]> {
+  await ready();
+
   const now = new Date().toISOString();
 
   if (platforms !== undefined) {
@@ -133,166 +83,210 @@ export function getUpcomingStoredContests(
     }
 
     const placeholders = platforms.map(() => "?").join(", ");
-    const stmt = db.prepare(`
-      SELECT
-        id,
-        platform,
-        name,
-        start_time,
-        duration_seconds,
-        url,
-        updated_at
-      FROM contests
-      WHERE start_time > ?
-        AND platform IN (${placeholders})
-      ORDER BY start_time ASC
-    `);
+    const result = await client.execute({
+      sql: `SELECT ${CONTEST_COLUMNS}
+        FROM contests
+        WHERE start_time > ?
+          AND platform IN (${placeholders})
+        ORDER BY start_time ASC`,
+      args: [now, ...platforms],
+    });
 
-    const rows = stmt.all(now, ...platforms) as ContestRow[];
-
-    return rows.map(rowToContest);
+    return (result.rows as unknown as ContestRow[]).map(rowToContest);
   }
 
-  const rows = getUpcomingContestsStatement.all(now) as ContestRow[];
-
-  return rows.map(rowToContest);
-}
-
-export function getUpcomingStoredContestsByPlatform(
-  platform: ContestPlatform
-): Contest[] {
-  const rows = getUpcomingContestsByPlatformStatement.all(
-    platform,
-    new Date().toISOString()
-  ) as ContestRow[];
-
-  return rows.map(rowToContest);
-}
-
-export function saveContests(contests: Contest[]): void {
-  const transaction = db.transaction((items: Contest[]) => {
-    const now = new Date().toISOString();
-
-    for (const contest of items) {
-      upsertContestStatement.run({
-        id: contest.id,
-        platform: contest.platform,
-        name: contest.name,
-        start_time: contest.startTime.toISOString(),
-        duration_seconds: contest.durationSeconds,
-        url: contest.url,
-        updated_at: now,
-      });
-    }
+  const result = await client.execute({
+    sql: `SELECT ${CONTEST_COLUMNS}
+      FROM contests
+      WHERE start_time > ?
+      ORDER BY start_time ASC`,
+    args: [now],
   });
 
-  transaction(contests);
+  return (result.rows as unknown as ContestRow[]).map(rowToContest);
 }
 
-export function syncProviderContests(
+export async function getUpcomingStoredContestsByPlatform(
+  platform: ContestPlatform
+): Promise<Contest[]> {
+  await ready();
+
+  const result = await client.execute({
+    sql: `SELECT ${CONTEST_COLUMNS}
+      FROM contests
+      WHERE platform = ? AND start_time > ?
+      ORDER BY start_time ASC`,
+    args: [platform, new Date().toISOString()],
+  });
+
+  return (result.rows as unknown as ContestRow[]).map(rowToContest);
+}
+
+export async function saveContests(contests: Contest[]): Promise<void> {
+  await ready();
+
+  const now = new Date().toISOString();
+
+  await client.batch(
+    contests.map((contest) => ({
+      sql: UPSERT_CONTEST,
+      args: upsertArgs(contest, now),
+    })),
+    "write"
+  );
+}
+
+export async function syncProviderContests(
   platform: ContestPlatform,
   contests: Contest[]
-): number {
-  const currentIds = new Set(
-    contests.map((contest) => contest.id)
-  );
+): Promise<number> {
+  await ready();
 
-  const transaction = db.transaction(() => {
-    const now = new Date().toISOString();
+  const currentIds = new Set(contests.map((contest) => contest.id));
+  const now = new Date().toISOString();
 
+  const transaction = await client.transaction("write");
+
+  try {
     for (const contest of contests) {
-      upsertContestStatement.run({
-        id: contest.id,
-        platform: contest.platform,
-        name: contest.name,
-        start_time: contest.startTime.toISOString(),
-        duration_seconds: contest.durationSeconds,
-        url: contest.url,
-        updated_at: now,
+      await transaction.execute({
+        sql: UPSERT_CONTEST,
+        args: upsertArgs(contest, now),
       });
     }
 
-    const stored = getUpcomingContestsByPlatformStatement.all(
-      platform,
-      now
-    ) as ContestRow[];
+    const storedResult = await transaction.execute({
+      sql: `SELECT ${CONTEST_COLUMNS}
+        FROM contests
+        WHERE platform = ? AND start_time > ?
+        ORDER BY start_time ASC`,
+      args: [platform, now],
+    });
+    const stored = storedResult.rows as unknown as ContestRow[];
 
     const staleIds = stored
       .map((row) => row.id)
       .filter((id) => !currentIds.has(id));
 
     for (const id of staleIds) {
-      const participation = getParticipationStatement.get(id) as ParticipationRow | undefined;
-      if (!participation) {
-        deleteContestStatement.run(
-          id,
-          now,
-          platform
-        );
+      const participation = await transaction.execute({
+        sql: "SELECT status FROM participation WHERE contest_id = ?",
+        args: [id],
+      });
+
+      if (participation.rows.length === 0) {
+        await transaction.execute({
+          sql: `DELETE FROM contests
+            WHERE id = ?
+              AND start_time > ?
+              AND platform = ?`,
+          args: [id, now, platform],
+        });
       }
     }
 
-    return staleIds.length;
-  });
+    await transaction.commit();
 
-  return transaction();
+    return staleIds.length;
+  } catch (error) {
+    await transaction.rollback();
+    throw error;
+  }
 }
 
-export function getParticipationStatus(contestId: string): ParticipationStatus | null {
-  const row = getParticipationStatement.get(contestId) as ParticipationRow | undefined;
+export async function getParticipationStatus(
+  contestId: string
+): Promise<ParticipationStatus | null> {
+  await ready();
+
+  const result = await client.execute({
+    sql: "SELECT status FROM participation WHERE contest_id = ?",
+    args: [contestId],
+  });
+  const row = result.rows[0] as unknown as ParticipationRow | undefined;
+
   return row ? row.status : null;
 }
 
-export function saveParticipationStatus(
+/** Every contest currently marked as planned, in one query. */
+export async function listPlannedContestIds(): Promise<Set<string>> {
+  await ready();
+
+  const result = await client.execute(
+    "SELECT contest_id FROM participation WHERE status = 'planned'"
+  );
+
+  return new Set(result.rows.map((row) => String(row.contest_id)));
+}
+
+export async function saveParticipationStatus(
   contestId: string,
   status: ParticipationStatus | null
-): void {
+): Promise<void> {
+  await ready();
+
   if (status === null) {
-    deleteParticipationStatement.run(contestId);
+    await client.execute({
+      sql: "DELETE FROM participation WHERE contest_id = ?",
+      args: [contestId],
+    });
     return;
   }
-  saveParticipationStatement.run({
-    contest_id: contestId,
-    status,
-    updated_at: new Date().toISOString(),
+
+  await client.execute({
+    sql: `INSERT INTO participation (contest_id, status, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(contest_id) DO UPDATE SET
+        status = excluded.status,
+        updated_at = excluded.updated_at`,
+    args: [contestId, status, new Date().toISOString()],
   });
 }
 
 export type HistoryEntry = Contest & { status: ParticipationStatus };
 
-export function getContestHistory(
+export async function getContestHistory(
   status?: ParticipationStatus
-): HistoryEntry[] {
+): Promise<HistoryEntry[]> {
+  await ready();
+
   const now = new Date().toISOString();
-  let rows: any[];
+  const result = status
+    ? await client.execute({
+        sql: `SELECT
+          c.id,
+          c.platform,
+          c.name,
+          c.start_time,
+          c.duration_seconds,
+          c.url,
+          p.status
+        FROM contests c
+        JOIN participation p ON c.id = p.contest_id
+        WHERE c.start_time < ? AND p.status = ?
+        ORDER BY c.start_time DESC`,
+        args: [now, status],
+      })
+    : await client.execute({
+        sql: `SELECT
+          c.id,
+          c.platform,
+          c.name,
+          c.start_time,
+          c.duration_seconds,
+          c.url,
+          p.status
+        FROM contests c
+        JOIN participation p ON c.id = p.contest_id
+        WHERE c.start_time < ?
+        ORDER BY c.start_time DESC`,
+        args: [now],
+      });
 
-  if (status) {
-    const stmt = db.prepare(`
-      SELECT
-        c.id,
-        c.platform,
-        c.name,
-        c.start_time,
-        c.duration_seconds,
-        c.url,
-        p.status
-      FROM contests c
-      JOIN participation p ON c.id = p.contest_id
-      WHERE c.start_time < ? AND p.status = ?
-      ORDER BY c.start_time DESC
-    `);
-    rows = stmt.all(now, status);
-  } else {
-    rows = getHistoryStatement.all(now);
-  }
-
-  return rows.map((row) => ({
-    id: row.id,
-    platform: row.platform,
-    name: row.name,
-    startTime: new Date(row.start_time),
-    durationSeconds: row.duration_seconds,
-    url: row.url,
+  return (
+    result.rows as unknown as (ContestRow & { status: ParticipationStatus })[]
+  ).map((row) => ({
+    ...rowToContest(row),
     status: row.status,
   }));
 }

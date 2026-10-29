@@ -10,7 +10,7 @@ const statusFilter = Astro.url.searchParams.get(
 
 // One read serves both the list and the header counts; filtering in memory
 // keeps this to a single query per request.
-const allEntries = getContestHistory();
+const allEntries = await getContestHistory();
 const history = statusFilter
   ? allEntries.filter((entry) => entry.status === statusFilter)
   : allEntries;

@@ -1,4 +1,4 @@
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import type { ContestPlatform } from "../contests/types";
 import {
   DEFAULT_PREFERENCES,
@@ -14,29 +14,6 @@ type PreferencesRow = {
   preferred_time_windows: string;
   platform_weights: string;
 };
-
-const getPreferencesStatement = db.prepare(`
-  SELECT
-    id,
-    enabled_platforms,
-    max_contests_per_week,
-    preferred_days,
-    preferred_time_windows,
-    platform_weights
-  FROM preferences
-  WHERE id = 1
-`);
-
-const savePreferencesStatement = db.prepare(`
-  INSERT INTO preferences (id, enabled_platforms, max_contests_per_week, preferred_days, preferred_time_windows, platform_weights)
-  VALUES (1, ?, ?, ?, ?, ?)
-  ON CONFLICT(id) DO UPDATE SET
-    enabled_platforms = excluded.enabled_platforms,
-    max_contests_per_week = excluded.max_contests_per_week,
-    preferred_days = excluded.preferred_days,
-    preferred_time_windows = excluded.preferred_time_windows,
-    platform_weights = excluded.platform_weights
-`);
 
 const supportedPlatformsSet = new Set<string>(SUPPORTED_PLATFORMS);
 
@@ -61,30 +38,53 @@ export function sanitizePlatforms(platforms: unknown): ContestPlatform[] | null 
   return sanitized;
 }
 
-export function getPreferences(): UserPreferences {
-  const row = getPreferencesStatement.get() as PreferencesRow | undefined;
+export async function getPreferences(): Promise<UserPreferences> {
+  await ready();
+
+  const result = await client.execute(`
+    SELECT
+      id,
+      enabled_platforms,
+      max_contests_per_week,
+      preferred_days,
+      preferred_time_windows,
+      platform_weights
+    FROM preferences
+    WHERE id = 1
+  `);
+  const row = result.rows[0] as unknown as PreferencesRow | undefined;
 
   if (!row) {
-    savePreferences(DEFAULT_PREFERENCES);
+    await savePreferences(DEFAULT_PREFERENCES);
     return { ...DEFAULT_PREFERENCES };
   }
 
   try {
     return {
-      enabledPlatforms: sanitizePlatforms(JSON.parse(row.enabled_platforms)) ?? DEFAULT_PREFERENCES.enabledPlatforms,
-      maxContestsPerWeek: row.max_contests_per_week ?? DEFAULT_PREFERENCES.maxContestsPerWeek,
-      preferredDays: JSON.parse(row.preferred_days) ?? DEFAULT_PREFERENCES.preferredDays,
-      preferredTimeWindows: JSON.parse(row.preferred_time_windows) ?? DEFAULT_PREFERENCES.preferredTimeWindows,
-      platformWeights: JSON.parse(row.platform_weights) ?? DEFAULT_PREFERENCES.platformWeights,
+      enabledPlatforms:
+        sanitizePlatforms(JSON.parse(row.enabled_platforms)) ??
+        DEFAULT_PREFERENCES.enabledPlatforms,
+      maxContestsPerWeek:
+        row.max_contests_per_week ?? DEFAULT_PREFERENCES.maxContestsPerWeek,
+      preferredDays:
+        JSON.parse(row.preferred_days) ?? DEFAULT_PREFERENCES.preferredDays,
+      preferredTimeWindows:
+        JSON.parse(row.preferred_time_windows) ??
+        DEFAULT_PREFERENCES.preferredTimeWindows,
+      platformWeights:
+        JSON.parse(row.platform_weights) ??
+        DEFAULT_PREFERENCES.platformWeights,
     };
   } catch {
     return { ...DEFAULT_PREFERENCES };
   }
 }
 
-export function savePreferences(
+export async function savePreferences(
   preferences: Partial<UserPreferences>
-): void {
+): Promise<void> {
+  await ready();
+
   const sanitized = sanitizePlatforms(preferences?.enabledPlatforms) ?? [
     ...DEFAULT_PREFERENCES.enabledPlatforms,
   ];
@@ -120,16 +120,28 @@ export function savePreferences(
       ? preferences.platformWeights
       : DEFAULT_PREFERENCES.platformWeights;
 
-  savePreferencesStatement.run(
-    JSON.stringify(sanitized),
-    maxContestsPerWeek,
-    JSON.stringify(preferredDays),
-    JSON.stringify(preferredTimeWindows),
-    JSON.stringify(platformWeights)
-  );
+  await client.execute({
+    sql: `INSERT INTO preferences (id, enabled_platforms, max_contests_per_week, preferred_days, preferred_time_windows, platform_weights)
+      VALUES (1, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        enabled_platforms = excluded.enabled_platforms,
+        max_contests_per_week = excluded.max_contests_per_week,
+        preferred_days = excluded.preferred_days,
+        preferred_time_windows = excluded.preferred_time_windows,
+        platform_weights = excluded.platform_weights`,
+    args: [
+      JSON.stringify(sanitized),
+      maxContestsPerWeek,
+      JSON.stringify(preferredDays),
+      JSON.stringify(preferredTimeWindows),
+      JSON.stringify(platformWeights),
+    ],
+  });
 }
 
-export function saveSubmittedPlatforms(rawPlatforms: unknown): UserPreferences {
+export async function saveSubmittedPlatforms(
+  rawPlatforms: unknown
+): Promise<UserPreferences> {
   const list = Array.isArray(rawPlatforms)
     ? rawPlatforms
     : typeof rawPlatforms === "string"
@@ -141,6 +153,6 @@ export function saveSubmittedPlatforms(rawPlatforms: unknown): UserPreferences {
     ...DEFAULT_PREFERENCES,
     enabledPlatforms: sanitized,
   };
-  savePreferences(preferences);
+  await savePreferences(preferences);
   return preferences;
 }
