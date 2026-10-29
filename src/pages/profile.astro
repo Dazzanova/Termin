@@ -335,7 +335,7 @@ const anchorLabel =
 
         if (response.status === 404) {
           button.disabled = false;
-          showToast("Queueing needs the dev server (npm run dev)", "error");
+          showToast("Could not reach the server", "error");
           return;
         }
 

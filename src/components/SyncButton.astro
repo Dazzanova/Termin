@@ -32,7 +32,7 @@ const { label = "Sync" } = Astro.props;
       const response = await fetch("/api/sync", { method: "POST" });
 
       if (response.status === 404) {
-        showToast("Sync needs the dev server (npm run dev)", "error");
+        showToast("Sync is not available right now", "error");
         return;
       }
 

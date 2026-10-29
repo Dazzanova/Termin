@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: termin
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: node ./dist/server/entry.mjs
+    healthCheckPath: /login
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.12.0
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: TERMIN_PASSWORD
+        sync: false
+      - key: TERMIN_SECRET
+        sync: false

@@ -33,6 +33,7 @@ No account, no server, no telemetry — your data stays in `.data/termin.db`.
 | Weakness profile, rating chart, and practice suggestions | ✅ |
 | Beginner contest guide and C++ starter packs | ✅ |
 | iCalendar feeds per platform and combined | ✅ |
+| Deployable on free hosting (Render + Turso) with a password gate | ✅ |
 | Reminder delivery (push, email, Discord) | 🚧 roadmap |
 | Hosted multi-user version | 🚧 roadmap |
 
@@ -48,11 +49,10 @@ npm run sync   # fetch upcoming contests into SQLite
 npm run dev    # http://localhost:4321
 ```
 
-`npm run dev` is the full app: syncing, preferences, participation tracking, and
-the calendar feeds all work. The **Sync** button in the toolbar re-fetches
-contests without leaving the page. A production build (`npm run build`) is a
-read-only snapshot, because the write endpoints only exist in the dev server.
-See [Limitations](#limitations).
+`npm run dev` runs the full app. The **Sync** button in the toolbar re-fetches
+contests without leaving the page. `npm run build` produces a server bundle that
+runs with `npm start`; the same write endpoints serve both. To put it on the
+internet for free, see [Deploy](#deploy).
 
 ### Try the demo
 
@@ -123,9 +123,9 @@ Termin serves iCalendar feeds from these paths:
 | LeetCode | `/calendar/leetcode.ics` |
 
 While `npm run dev` is running, subscribe to
-`http://localhost:4321/calendar.ics`. After `npm run build`, the same files are
-written to `dist/calendar.ics` and `dist/calendar/`, ready to host on any static
-host.
+`http://localhost:4321/calendar.ics`. Feeds are generated per request, so a
+deployed instance stays current. They are the only public routes: calendar
+clients cannot send a session cookie, and the feeds contain no personal data.
 
 - **Google Calendar**: Other calendars → From URL → paste the feed URL.
 - **Apple Calendar**: File → New Calendar Subscription → paste the feed URL.
@@ -143,8 +143,9 @@ regenerated on each build, so a deployed feed is as fresh as the last deploy.
 | `npm run import` | Import the Codeforces catalog and your submissions |
 | `npm run sync` | Fetch contests from every provider and reconcile them into SQLite |
 | `npm run sync:worker` | Long-running sync loop (`TERMIN_SYNC_INTERVAL_HOURS`, default 24) |
-| `npm run build` | Static build of the dashboard and calendar files |
-| `npm run preview` | Serve the built output |
+| `npm run build` | Build the server bundle in `dist/` |
+| `npm start` | Serve the built bundle (`node ./dist/server/entry.mjs`) |
+| `npm run preview` | Preview the built bundle locally |
 | `npm test` | Run the Vitest suite against an in-memory database |
 
 ## Architecture
@@ -157,15 +158,21 @@ src/
     calendar/          iCalendar serialization (ics.ts) and response helper
     preferences/       platform and schedule preferences
     reminders/         reminder scheduling and storage
-    db/                SQLite connection and tracked SQL migrations
-  pages/               Astro routes, including calendar.ics.ts
+    auth/              signed session cookie and password check
+    db/                libSQL client, base schema, and tracked migrations
+  pages/               Astro routes, including `api/*` and `calendar.ics.ts`
   components/          Astro components (no client framework)
   scripts/             sync CLI and background worker
-  dev/                 write API mounted on the dev server only
+  middleware.ts        password gate and first-request migration
 ```
 
-Data flow: `sync` → provider adapters → validation → reconciliation → SQLite →
+Data flow: `sync` → provider adapters → validation → reconciliation → libSQL →
 `getUpcomingContests()` → dashboard or `buildCalendar()` → `.ics`.
+
+The database is [libSQL](https://turso.tech/libsql), which is SQLite with a
+network protocol. Locally the client opens a file; in production it talks to
+Turso using `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`. One code path serves
+both.
 
 All times are stored and serialized in UTC. The dashboard renders them in your
 local time zone.
@@ -174,18 +181,61 @@ local time zone.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `TERMIN_DB_PATH` | `.data/termin.db` | SQLite location; use `:memory:` for throwaway runs |
+| `TERMIN_DB_PATH` | `.data/termin.db` | Local libSQL file; `:memory:` for throwaway runs |
+| `TURSO_DATABASE_URL` | – | Remote libSQL URL; overrides `TERMIN_DB_PATH` |
+| `TURSO_AUTH_TOKEN` | – | Token for the Turso database |
+| `TERMIN_PASSWORD` | – | Required in production; enables the sign-in gate |
+| `TERMIN_SECRET` | password | HMAC key for session cookies; set it separately |
 | `TERMIN_SYNC_INTERVAL_HOURS` | `24` | Interval for `npm run sync:worker` |
+
+## Deploy
+
+The free combination is **Render** (web service) and **Turso** (database). No
+card is required, and the service sleeps after 15 idle minutes, so the first
+request after a pause takes a few seconds.
+
+1. **Create the database.**
+
+   ```bash
+   turso db create termin
+   turso db show termin --url          # TURSO_DATABASE_URL
+   turso db tokens create termin       # TURSO_AUTH_TOKEN
+   ```
+
+2. **Move existing data** (optional). Dump your local file and load it:
+
+   ```bash
+   sqlite3 .data/termin.db .dump > termin.sql
+   turso db shell termin < termin.sql
+   ```
+
+   Skip this and the app starts empty; run **Sync** and **Link & import** after
+   the first deploy. Migrations run automatically on the first request either
+   way.
+
+3. **Deploy.** Push the repository, then in Render choose **New → Blueprint**
+   and point it at `render.yaml`. Enter the four secrets when prompted:
+   `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `TERMIN_PASSWORD`, and
+   `TERMIN_SECRET` (a long random string; changing it signs everyone out).
+
+4. Set `TERMIN_PASSWORD` before the service is public. Without it a production
+   server refuses to start serving pages, so a misconfigured deploy fails
+   closed rather than open.
+
+Render's free web service has no persistent disk. That is why the database lives
+at Turso, and why there is nothing to mount. `render.yaml` starts the server with
+`node ./dist/server/entry.mjs` and health-checks `/login`.
 
 ## Limitations
 
-- Termin builds to static files, so writes (`participation`, `preferences`,
-  **Sync**) are served by a dev-server integration (`src/dev/write-api.ts`)
-  that `npm run build` does not include. A static build is read-only.
+- The app is single-user. There is one password, one set of preferences, and
+  one training record.
 - Reminders are scheduled and stored, but no delivery channel is implemented
   yet. See the roadmap.
-- Training imports and review actions need the dev server, like every other
-  write. Submissions and the catalog are only imported for Codeforces.
+- Submissions and the catalog are only imported for Codeforces.
+- The free Render service sleeps when idle, so a background sync loop is not
+  reliable there. Use **Sync**, `npm run sync` from a machine that stays on, or
+  a scheduled job against a paid instance.
 - Migrations are forward-only. If a pre-1.0 database is incompatible, delete
   `.data/termin.db` and run `npm run sync` again.
 
