@@ -6,8 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **SQLite client replaced with libSQL.** `better-sqlite3` is gone in favour of
+  `@libsql/client`. Local development still uses a file; production uses Turso
+  via `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`. Repository calls are async, and
+  migrations run once on the first request instead of at module import.
+- The write API moved from a Vite dev-server integration
+  (`src/dev/write-api.ts`) to `src/pages/api/*`, so the built server supports
+  the same actions as `npm run dev`.
+- Calendar feeds and starter-pack zips are generated per request instead of at
+  build time.
+
 ### Added
 
+- **Deployable server.** Termin now renders on the server with `@astrojs/node`
+  (`output: "server"`), so pages read current data and the write API works
+  outside `npm run dev`. `render.yaml` describes a free Render web service and
+  the README walks through Turso setup and data migration.
+- **Single-password gate.** `TERMIN_PASSWORD` enables a `/login` page and a
+  signed, HttpOnly `termin_session` cookie (30 days, HMAC-SHA256). Middleware
+  protects every route except the login page, static assets, and the public
+  calendar feeds. A production server refuses to serve pages when the password
+  is unset. Write endpoints also reject cross-origin requests.
 - **Beginner guide and starter packs.** A new `/learn` page walks through a
   first contest (before, during, after) and what each of the four platforms
   expects. Every upcoming contest gets a C++17 starter pack — one file per

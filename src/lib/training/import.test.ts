@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import { saveContests, saveParticipationStatus } from "../contests/repository";
 import {
   getAccount,
@@ -59,16 +59,17 @@ const RATING = {
   ratedAt: new Date("2026-10-01T12:00:00.000Z"),
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.resetAllMocks();
-  db.exec("DELETE FROM rating_history");
-  db.exec("DELETE FROM problem_reviews");
-  db.exec("DELETE FROM submissions");
-  db.exec("DELETE FROM problems");
-  db.exec("DELETE FROM participation");
-  db.exec("DELETE FROM contests");
-  db.exec("DELETE FROM platform_accounts");
-  db.exec("DELETE FROM training_state");
+  await ready();
+  await client.execute("DELETE FROM rating_history");
+  await client.execute("DELETE FROM problem_reviews");
+  await client.execute("DELETE FROM submissions");
+  await client.execute("DELETE FROM problems");
+  await client.execute("DELETE FROM participation");
+  await client.execute("DELETE FROM contests");
+  await client.execute("DELETE FROM platform_accounts");
+  await client.execute("DELETE FROM training_state");
 
   vi.mocked(fetchProblemset).mockResolvedValue([PROBLEM_A, PROBLEM_B]);
   vi.mocked(fetchSubmissions).mockResolvedValue([SOLVED]);
@@ -83,8 +84,8 @@ beforeEach(() => {
     url: "https://codeforces.com/contest/1001",
   };
 
-  saveContests([contest]);
-  saveParticipationStatus(contest.id, "participated");
+  await saveContests([contest]);
+  await saveParticipationStatus(contest.id, "participated");
 });
 
 describe("importCodeforcesData", () => {
@@ -100,10 +101,10 @@ describe("importCodeforcesData", () => {
     expect(summary.ratedContests).toBe(1);
     expect(summary.currentRating).toBe(1520);
 
-    expect(getAccount("codeforces")?.handle).toBe("tourist");
-    expect(listRatingHistory()).toEqual([RATING]);
-    expect(getReview(PROBLEM_B.id)?.status).toBe("due");
-    expect(getReview(PROBLEM_A.id)).toBeNull();
+    expect((await getAccount("codeforces"))?.handle).toBe("tourist");
+    expect(await listRatingHistory()).toEqual([RATING]);
+    expect((await getReview(PROBLEM_B.id))?.status).toBe("due");
+    expect(await getReview(PROBLEM_A.id)).toBeNull();
   });
 
   it("writes nothing when the API call fails", async () => {
@@ -115,8 +116,8 @@ describe("importCodeforcesData", () => {
       "handle not found"
     );
 
-    expect(countProblems()).toBe(0);
-    expect(getAccount("codeforces")).toBeNull();
+    expect(await countProblems()).toBe(0);
+    expect(await getAccount("codeforces")).toBeNull();
   });
 
   it("writes nothing when rating history fails", async () => {
@@ -128,8 +129,8 @@ describe("importCodeforcesData", () => {
       "rating unavailable"
     );
 
-    expect(countProblems()).toBe(0);
-    expect(listRatingHistory()).toEqual([]);
+    expect(await countProblems()).toBe(0);
+    expect(await listRatingHistory()).toEqual([]);
   });
 
   it("refuses to import without a handle", async () => {

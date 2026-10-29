@@ -1,26 +1,26 @@
-import Database from "better-sqlite3";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { createClient } from "@libsql/client";
 import { describe, expect, it } from "vitest";
+import { MIGRATIONS } from "./migrations/index";
 import { runMigrations } from "./migrate";
 
-function createBaselineDatabase(): Database.Database {
-  const db = new Database(":memory:");
-  db.exec(`
+async function createBaselineClient() {
+  const client = createClient({ url: ":memory:" });
+
+  await client.execute(`
     CREATE TABLE preferences (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       enabled_platforms TEXT NOT NULL
     )
   `);
-  return db;
+
+  return client;
 }
 
 describe("runMigrations", () => {
-  it("applies the tracked migrations in order", () => {
-    const db = createBaselineDatabase();
+  it("applies the tracked migrations in order", async () => {
+    const client = await createBaselineClient();
 
-    const applied = runMigrations(db);
+    const applied = await runMigrations(client, MIGRATIONS);
 
     expect(applied).toEqual([
       "001_personalization_preferences.sql",
@@ -29,10 +29,9 @@ describe("runMigrations", () => {
       "004_rating_history.sql",
     ]);
 
-    const tables = db
-      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
-      .all()
-      .map((row) => (row as { name: string }).name);
+    const tables = (
+      await client.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
+    ).rows.map((row) => String(row.name));
 
     expect(tables).toContain("contest_priorities");
     expect(tables).toContain("schema_migrations");
@@ -42,44 +41,44 @@ describe("runMigrations", () => {
     expect(tables).toContain("problem_reviews");
     expect(tables).toContain("rating_history");
 
-    const columns = db
-      .prepare("PRAGMA table_info(preferences)")
-      .all()
-      .map((row) => (row as { name: string }).name);
+    const columns = (
+      await client.execute("PRAGMA table_info(preferences)")
+    ).rows.map((row) => String(row.name));
 
     expect(columns).toContain("max_contests_per_week");
     expect(columns).toContain("preferred_time_windows");
   });
 
-  it("does not re-apply migrations on a second run", () => {
-    const db = createBaselineDatabase();
+  it("does not re-apply migrations on a second run", async () => {
+    const client = await createBaselineClient();
 
-    runMigrations(db);
+    await runMigrations(client, MIGRATIONS);
 
-    expect(runMigrations(db)).toEqual([]);
+    expect(await runMigrations(client, MIGRATIONS)).toEqual([]);
 
-    const count = db
-      .prepare("SELECT COUNT(*) AS count FROM schema_migrations")
-      .get() as { count: number };
-
-    expect(count.count).toBe(4);
-  });
-
-  it("names the failing migration and leaves the ledger untouched", () => {
-    const db = createBaselineDatabase();
-    const dir = mkdtempSync(path.join(tmpdir(), "termin-migrations-"));
-
-    writeFileSync(
-      path.join(dir, "001_broken.sql"),
-      "CREATE TABLE broken (id INTEGER PRIMARY KEY"
+    const count = await client.execute(
+      "SELECT COUNT(*) AS count FROM schema_migrations"
     );
 
-    expect(() => runMigrations(db, dir)).toThrow(/001_broken\.sql/);
+    expect(count.rows[0].count).toBe(4);
+  });
 
-    const count = db
-      .prepare("SELECT COUNT(*) AS count FROM schema_migrations")
-      .get() as { count: number };
+  it("names the failing migration and leaves the ledger untouched", async () => {
+    const client = await createBaselineClient();
 
-    expect(count.count).toBe(0);
+    await expect(
+      runMigrations(client, [
+        {
+          name: "001_broken.sql",
+          sql: "CREATE TABLE broken (id INTEGER PRIMARY KEY",
+        },
+      ])
+    ).rejects.toThrow(/001_broken\.sql/);
+
+    const count = await client.execute(
+      "SELECT COUNT(*) AS count FROM schema_migrations"
+    );
+
+    expect(count.rows[0].count).toBe(0);
   });
 });

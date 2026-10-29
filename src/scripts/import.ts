@@ -3,7 +3,7 @@ import { getAccount } from "../lib/training/repository";
 
 const handleFlag = process.argv.indexOf("--handle");
 const handle = handleFlag === -1 ? undefined : process.argv[handleFlag + 1];
-const account = getAccount("codeforces");
+const account = await getAccount("codeforces");
 
 if (!handle && !account) {
   console.error(

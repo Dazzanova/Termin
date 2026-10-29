@@ -29,7 +29,7 @@ export async function importCodeforcesData(
   handle?: string,
   now: Date = new Date()
 ): Promise<ImportSummary> {
-  const account = getAccount("codeforces");
+  const account = await getAccount("codeforces");
   const target = (handle ?? account?.handle ?? "").trim();
 
   if (!target) {
@@ -41,22 +41,22 @@ export async function importCodeforcesData(
   const ratings = await fetchRatingHistory(target);
 
   if (account?.handle !== target) {
-    saveAccount(target, "codeforces");
+    await saveAccount(target, "codeforces");
   }
 
-  saveProblems(problems);
-  replaceSubmissions(submissions);
-  replaceRatingHistory(ratings);
+  await saveProblems(problems);
+  await replaceSubmissions(submissions);
+  await replaceRatingHistory(ratings);
 
-  const { queued, closed } = rebuildUpsolveQueue(now);
+  const { queued, closed } = await rebuildUpsolveQueue(now);
 
-  setTrainingState("last_import_at", now.toISOString());
-  setTrainingState("last_import_handle", target);
+  await setTrainingState("last_import_at", now.toISOString());
+  await setTrainingState("last_import_handle", target);
 
   return {
-    problems: countProblems(),
-    submissions: countSubmissions(),
-    solved: getSolvedProblemIds("codeforces").size,
+    problems: await countProblems(),
+    submissions: await countSubmissions(),
+    solved: (await getSolvedProblemIds("codeforces")).size,
     closedReviews: closed,
     queuedReviews: queued,
     ratedContests: ratings.length,

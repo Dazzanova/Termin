@@ -12,12 +12,12 @@ import {
   listDueReviews,
 } from "../lib/training/repository";
 
-const contests = getUpcomingContests();
+const contests = await getUpcomingContests();
 const nextContest = contests.length > 0 ? contests[0] : null;
 
-const trainingAccount = getAccount("codeforces");
-const trainingCounts = trainingAccount ? getReviewCounts() : null;
-const dueReviews = trainingAccount ? listDueReviews(new Date(), 2) : [];
+const trainingAccount = await getAccount("codeforces");
+const trainingCounts = trainingAccount ? await getReviewCounts() : null;
+const dueReviews = trainingAccount ? await listDueReviews(new Date(), 2) : [];
 
 function dayLabel(date: Date, now: Date): string {
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());

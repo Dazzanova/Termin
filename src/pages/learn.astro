@@ -6,8 +6,8 @@ import { listPacks } from "../lib/packs/build";
 import { listProblems } from "../lib/training/repository";
 
 const packs = listPacks(
-  getUpcomingContests(),
-  listProblems("codeforces")
+  await getUpcomingContests(),
+  await listProblems("codeforces")
 );
 const contestPacks = packs.filter((pack) => pack.id.startsWith("contest-"));
 const genericPacks = packs.filter((pack) => pack.id.startsWith("platform-"));

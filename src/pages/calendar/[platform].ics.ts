@@ -6,22 +6,14 @@ import { PLATFORM_NAMES } from "../../lib/contests/platforms";
 import type { ContestPlatform } from "../../lib/contests/types";
 import { SUPPORTED_PLATFORMS } from "../../lib/preferences/types";
 
-export const prerender = true;
-
-export function getStaticPaths() {
-  return SUPPORTED_PLATFORMS.map((platform) => ({
-    params: { platform },
-  }));
-}
-
-export const GET: APIRoute = ({ params }) => {
+export const GET: APIRoute = async ({ params }) => {
   const platform = params.platform as ContestPlatform | undefined;
 
   if (!platform || !SUPPORTED_PLATFORMS.includes(platform)) {
     return new Response("Unknown platform", { status: 404 });
   }
 
-  const contests = getUpcomingContests([platform]);
+  const contests = await getUpcomingContests([platform]);
   const label = PLATFORM_NAMES[platform];
 
   const body = buildCalendar(contests, {

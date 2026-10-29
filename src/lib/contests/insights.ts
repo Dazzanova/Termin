@@ -23,8 +23,8 @@ export type BehavioralInsights = {
   sampleSize: number;
 };
 
-export function calculateBehavioralInsights(): BehavioralInsights {
-  const history = getContestHistory();
+export async function calculateBehavioralInsights(): Promise<BehavioralInsights> {
+  const history = await getContestHistory();
   const sampleSize = history.length;
 
   if (sampleSize === 0) {

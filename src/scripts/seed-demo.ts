@@ -1,5 +1,8 @@
 import { buildDemoDataset } from "../dev/demo-data";
-import { saveContests, saveParticipationStatus } from "../lib/contests/repository";
+import {
+  saveContests,
+  saveParticipationStatus,
+} from "../lib/contests/repository";
 import { savePreferences } from "../lib/preferences/repository";
 import {
   markProviderSuccess,
@@ -19,35 +22,35 @@ import {
  * The demo CLI sets that path before importing this module, because the
  * database module freezes its path at import time.
  */
-export function seedDemoData(now: Date = new Date()): void {
+export async function seedDemoData(now: Date = new Date()): Promise<void> {
   const dataset = buildDemoDataset(now);
 
-  saveContests(dataset.contests);
+  await saveContests(dataset.contests);
 
   for (const entry of dataset.participation) {
-    saveParticipationStatus(entry.contestId, entry.status);
+    await saveParticipationStatus(entry.contestId, entry.status);
   }
 
-  savePreferences(dataset.preferences);
+  await savePreferences(dataset.preferences);
 
   for (const platform of dataset.preferences.enabledPlatforms) {
-    markProviderSuccess(platform);
+    await markProviderSuccess(platform);
   }
 
   const { training } = dataset;
 
-  saveAccount(training.handle, "codeforces");
-  saveProblems(training.problems);
-  replaceSubmissions(training.submissions, "codeforces");
-  replaceRatingHistory(training.ratings, "codeforces");
+  await saveAccount(training.handle, "codeforces");
+  await saveProblems(training.problems);
+  await replaceSubmissions(training.submissions, "codeforces");
+  await replaceRatingHistory(training.ratings, "codeforces");
 
   for (const review of training.reviews) {
-    saveReview(review);
+    await saveReview(review);
   }
 
-  setTrainingState("last_import_at", now.toISOString());
-  setTrainingState("last_import_handle", training.handle);
+  await setTrainingState("last_import_at", now.toISOString());
+  await setTrainingState("last_import_handle", training.handle);
 
   // The demo is a snapshot, so the toolbar should read "Synced just now".
-  markSyncCompleted(true);
+  await markSyncCompleted(true);
 }

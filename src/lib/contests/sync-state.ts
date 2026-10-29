@@ -1,40 +1,55 @@
-import db from "../db/database";
+import { client, ready } from "../db/database";
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS app_metadata (
-    key   TEXT PRIMARY KEY,
-    value TEXT NOT NULL
-  )
-`);
-
-const upsert = db.prepare(`
+const UPSERT = `
   INSERT INTO app_metadata (key, value)
   VALUES (?, ?)
   ON CONFLICT(key) DO UPDATE SET value = excluded.value
-`);
+`;
 
-const get = db.prepare(`
-  SELECT value FROM app_metadata WHERE key = ?
-`);
-
-export function markSyncStarted(): void {
-  upsert.run("sync_started_at", new Date().toISOString());
-  upsert.run("sync_status", "syncing");
+async function setValue(key: string, value: string): Promise<void> {
+  await client.execute({ sql: UPSERT, args: [key, value] });
 }
 
-export function markSyncCompleted(success: boolean = true): void {
-  upsert.run("sync_completed_at", new Date().toISOString());
-  upsert.run("sync_status", success ? "ok" : "error");
+async function getValue(key: string): Promise<string | undefined> {
+  const result = await client.execute({
+    sql: "SELECT value FROM app_metadata WHERE key = ?",
+    args: [key],
+  });
+
+  return result.rows[0]?.value as string | undefined;
 }
 
-export function markProviderSuccess(platform: string): void {
-  upsert.run(`provider_status_${platform}`, "ok");
-  upsert.run(`provider_synced_at_${platform}`, new Date().toISOString());
+export async function markSyncStarted(): Promise<void> {
+  await ready();
+
+  await setValue("sync_started_at", new Date().toISOString());
+  await setValue("sync_status", "syncing");
 }
 
-export function markProviderFailure(platform: string, error: unknown): void {
+export async function markSyncCompleted(
+  success: boolean = true
+): Promise<void> {
+  await ready();
+
+  await setValue("sync_completed_at", new Date().toISOString());
+  await setValue("sync_status", success ? "ok" : "error");
+}
+
+export async function markProviderSuccess(platform: string): Promise<void> {
+  await ready();
+
+  await setValue(`provider_status_${platform}`, "ok");
+  await setValue(`provider_synced_at_${platform}`, new Date().toISOString());
+}
+
+export async function markProviderFailure(
+  platform: string,
+  error: unknown
+): Promise<void> {
+  await ready();
+
   const message = error instanceof Error ? error.message : String(error);
-  upsert.run(`provider_status_${platform}`, `error:${message}`);
+  await setValue(`provider_status_${platform}`, `error:${message}`);
 }
 
 export type SyncStatus = "ok" | "syncing" | "error" | "unknown";
@@ -45,18 +60,22 @@ export type SyncState = {
   startedAt: Date | null;
 };
 
-export function getSyncState(): SyncState {
-  const statusRow   = get.get("sync_status")       as { value: string } | undefined;
-  const completedRow = get.get("sync_completed_at") as { value: string } | undefined;
-  const startedRow   = get.get("sync_started_at")   as { value: string } | undefined;
+export async function getSyncState(): Promise<SyncState> {
+  await ready();
 
-  const raw = statusRow?.value ?? "unknown";
+  const [statusValue, completedValue, startedValue] = await Promise.all([
+    getValue("sync_status"),
+    getValue("sync_completed_at"),
+    getValue("sync_started_at"),
+  ]);
+
+  const raw = statusValue ?? "unknown";
   const status: SyncStatus =
     raw === "ok" || raw === "syncing" || raw === "error" ? raw : "unknown";
 
   return {
     status,
-    completedAt: completedRow?.value ? new Date(completedRow.value) : null,
-    startedAt:   startedRow?.value   ? new Date(startedRow.value)   : null,
+    completedAt: completedValue ? new Date(completedValue) : null,
+    startedAt: startedValue ? new Date(startedValue) : null,
   };
 }

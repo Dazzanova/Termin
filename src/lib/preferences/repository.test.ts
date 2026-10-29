@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Contest } from "../contests/types";
 
-import db from "../db/database";
-import {
-  DEFAULT_PREFERENCES,
-  SUPPORTED_PLATFORMS,
-} from "./types";
+import { client, ready } from "../db/database";
+import { DEFAULT_PREFERENCES } from "./types";
 import {
   getPreferences,
   savePreferences,
@@ -30,14 +27,24 @@ function makeContest(overrides: Partial<Contest> = {}): Contest {
   };
 }
 
-beforeEach(() => {
-  db.exec("DELETE FROM preferences");
-  db.exec("DELETE FROM contests");
+async function insertEnabledPlatforms(value: string): Promise<void> {
+  await client.execute({
+    sql: `INSERT INTO preferences (id, enabled_platforms)
+      VALUES (1, ?)
+      ON CONFLICT(id) DO UPDATE SET enabled_platforms = excluded.enabled_platforms`,
+    args: [value],
+  });
+}
+
+beforeEach(async () => {
+  await ready();
+  await client.execute("DELETE FROM preferences");
+  await client.execute("DELETE FROM contests");
 });
 
 describe("preferences repository", () => {
-  it("initializes first-run defaults when no preferences exist", () => {
-    const preferences = getPreferences();
+  it("initializes first-run defaults when no preferences exist", async () => {
+    const preferences = await getPreferences();
 
     expect(preferences.enabledPlatforms).toEqual(
       DEFAULT_PREFERENCES.enabledPlatforms
@@ -49,10 +56,13 @@ describe("preferences repository", () => {
       "leetcode",
     ]);
 
-    // Verify it was persisted to SQLite
-    const row = db
-      .prepare("SELECT * FROM preferences WHERE id = 1")
-      .get() as { id: number; enabled_platforms: string };
+    const result = await client.execute(
+      "SELECT * FROM preferences WHERE id = 1"
+    );
+    const row = result.rows[0] as unknown as {
+      id: number;
+      enabled_platforms: string;
+    };
 
     expect(row).toBeDefined();
     expect(row.id).toBe(1);
@@ -61,106 +71,91 @@ describe("preferences repository", () => {
     );
   });
 
-  it("saves and loads preferences", () => {
-    savePreferences({
+  it("saves and loads preferences", async () => {
+    await savePreferences({
       enabledPlatforms: ["codeforces", "leetcode"],
     });
 
-    const preferences = getPreferences();
-    expect(preferences.enabledPlatforms).toEqual([
-      "codeforces",
-      "leetcode",
-    ]);
+    const preferences = await getPreferences();
+    expect(preferences.enabledPlatforms).toEqual(["codeforces", "leetcode"]);
   });
 
-  it("persists preferences across repository calls", () => {
-    savePreferences({
+  it("persists preferences across repository calls", async () => {
+    await savePreferences({
       enabledPlatforms: ["atcoder"],
     });
 
-    const firstCall = getPreferences();
-    const secondCall = getPreferences();
+    const firstCall = await getPreferences();
+    const secondCall = await getPreferences();
 
     expect(firstCall.enabledPlatforms).toEqual(["atcoder"]);
     expect(secondCall.enabledPlatforms).toEqual(["atcoder"]);
 
-    // Verify exact value in SQLite table
-    const row = db
-      .prepare("SELECT enabled_platforms FROM preferences WHERE id = 1")
-      .get() as { enabled_platforms: string };
+    const result = await client.execute(
+      "SELECT enabled_platforms FROM preferences WHERE id = 1"
+    );
+    const row = result.rows[0] as unknown as { enabled_platforms: string };
     expect(JSON.parse(row.enabled_platforms)).toEqual(["atcoder"]);
   });
 
-  it("handles invalid/unsupported stored platform data safely", () => {
-    // Inject row with unsupported platforms and non-string elements
-    db.prepare(`
-      INSERT INTO preferences (id, enabled_platforms)
-      VALUES (1, ?)
-      ON CONFLICT(id) DO UPDATE SET enabled_platforms = excluded.enabled_platforms
-    `).run(JSON.stringify(["codeforces", "unsupported_platform", 123, null]));
+  it("handles invalid/unsupported stored platform data safely", async () => {
+    await insertEnabledPlatforms(
+      JSON.stringify(["codeforces", "unsupported_platform", 123, null])
+    );
 
-    const preferences = getPreferences();
-    // Unsupported platforms and non-strings must be filtered out
+    const preferences = await getPreferences();
     expect(preferences.enabledPlatforms).toEqual(["codeforces"]);
   });
 
-  it("handles malformed JSON in stored preferences safely", () => {
-    db.prepare(`
-      INSERT INTO preferences (id, enabled_platforms)
-      VALUES (1, ?)
-      ON CONFLICT(id) DO UPDATE SET enabled_platforms = excluded.enabled_platforms
-    `).run("{ malformed json");
+  it("handles malformed JSON in stored preferences safely", async () => {
+    await insertEnabledPlatforms("{ malformed json");
 
-    const preferences = getPreferences();
+    const preferences = await getPreferences();
     expect(preferences.enabledPlatforms).toEqual(
       DEFAULT_PREFERENCES.enabledPlatforms
     );
   });
 
-  it("handles non-array stored data safely", () => {
-    db.prepare(`
-      INSERT INTO preferences (id, enabled_platforms)
-      VALUES (1, ?)
-      ON CONFLICT(id) DO UPDATE SET enabled_platforms = excluded.enabled_platforms
-    `).run(JSON.stringify({ not: "an array" }));
+  it("handles non-array stored data safely", async () => {
+    await insertEnabledPlatforms(JSON.stringify({ not: "an array" }));
 
-    const preferences = getPreferences();
+    const preferences = await getPreferences();
     expect(preferences.enabledPlatforms).toEqual(
       DEFAULT_PREFERENCES.enabledPlatforms
     );
   });
 
-  it("sanitizes unsupported platforms on save", () => {
-    savePreferences({
+  it("sanitizes unsupported platforms on save", async () => {
+    await savePreferences({
       enabledPlatforms: [
         "codeforces",
-        "fake_platform" as any,
-        "codeforces", // duplicate
+        "fake_platform" as never,
+        "codeforces",
       ],
     });
 
-    const preferences = getPreferences();
+    const preferences = await getPreferences();
     expect(preferences.enabledPlatforms).toEqual(["codeforces"]);
   });
 });
 
 describe("save submitted platforms from form / untrusted input", () => {
-  it("persists valid platform selection submitted from form", () => {
-    const result = saveSubmittedPlatforms(["codeforces", "atcoder"]);
+  it("persists valid platform selection submitted from form", async () => {
+    const result = await saveSubmittedPlatforms(["codeforces", "atcoder"]);
     expect(result.enabledPlatforms).toEqual(["codeforces", "atcoder"]);
 
-    const loaded = getPreferences();
+    const loaded = await getPreferences();
     expect(loaded.enabledPlatforms).toEqual(["codeforces", "atcoder"]);
   });
 
-  it("persists empty platform selection when no platforms are selected", () => {
-    saveSubmittedPlatforms([]);
-    const loaded = getPreferences();
+  it("persists empty platform selection when no platforms are selected", async () => {
+    await saveSubmittedPlatforms([]);
+    const loaded = await getPreferences();
     expect(loaded.enabledPlatforms).toEqual([]);
   });
 
-  it("filters out unsupported platforms from untrusted submission", () => {
-    const result = saveSubmittedPlatforms([
+  it("filters out unsupported platforms from untrusted submission", async () => {
+    const result = await saveSubmittedPlatforms([
       "codeforces",
       "hacker_earth",
       "topcoder",
@@ -168,12 +163,12 @@ describe("save submitted platforms from form / untrusted input", () => {
     ]);
     expect(result.enabledPlatforms).toEqual(["codeforces"]);
 
-    const loaded = getPreferences();
+    const loaded = await getPreferences();
     expect(loaded.enabledPlatforms).toEqual(["codeforces"]);
   });
 
-  it("deduplicates platforms from submission", () => {
-    const result = saveSubmittedPlatforms([
+  it("deduplicates platforms from submission", async () => {
+    const result = await saveSubmittedPlatforms([
       "leetcode",
       "leetcode",
       "codechef",
@@ -181,22 +176,22 @@ describe("save submitted platforms from form / untrusted input", () => {
     expect(result.enabledPlatforms).toEqual(["leetcode", "codechef"]);
   });
 
-  it("handles non-array or malformed submitted input safely", () => {
-    saveSubmittedPlatforms(null);
-    expect(getPreferences().enabledPlatforms).toEqual([]);
+  it("handles non-array or malformed submitted input safely", async () => {
+    await saveSubmittedPlatforms(null);
+    expect((await getPreferences()).enabledPlatforms).toEqual([]);
 
-    saveSubmittedPlatforms("codeforces");
-    expect(getPreferences().enabledPlatforms).toEqual(["codeforces"]);
+    await saveSubmittedPlatforms("codeforces");
+    expect((await getPreferences()).enabledPlatforms).toEqual(["codeforces"]);
 
-    saveSubmittedPlatforms(12345);
-    expect(getPreferences().enabledPlatforms).toEqual([]);
+    await saveSubmittedPlatforms(12345);
+    expect((await getPreferences()).enabledPlatforms).toEqual([]);
   });
 });
 
 describe("platform filtering", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const future = new Date(Date.now() + 86_400_000);
-    saveContests([
+    await saveContests([
       makeContest({
         id: "cf-1",
         platform: "codeforces",
@@ -224,58 +219,64 @@ describe("platform filtering", () => {
     ]);
   });
 
-  it("returns all contests when default preferences are active", () => {
-    const contests = getUpcomingContests();
+  it("returns all contests when default preferences are active", async () => {
+    const contests = await getUpcomingContests();
     expect(contests).toHaveLength(4);
   });
 
-  it("filters upcoming contests to one platform", () => {
-    savePreferences({
+  it("filters upcoming contests to one platform", async () => {
+    await savePreferences({
       enabledPlatforms: ["codeforces"],
     });
 
-    const contests = getUpcomingContests();
+    const contests = await getUpcomingContests();
     expect(contests).toHaveLength(1);
     expect(contests[0].platform).toBe("codeforces");
     expect(contests[0].id).toBe("cf-1");
   });
 
-  it("filters upcoming contests to multiple platforms", () => {
-    savePreferences({
+  it("filters upcoming contests to multiple platforms", async () => {
+    await savePreferences({
       enabledPlatforms: ["codeforces", "atcoder"],
     });
 
-    const contests = getUpcomingContests();
+    const contests = await getUpcomingContests();
     expect(contests).toHaveLength(2);
     const platforms = contests.map((c) => c.platform);
     expect(platforms).toEqual(["codeforces", "atcoder"]);
   });
 
-  it("returns no contests when empty platform selection is saved", () => {
-    savePreferences({
+  it("returns no contests when empty platform selection is saved", async () => {
+    await savePreferences({
       enabledPlatforms: [],
     });
 
-    const preferences = getPreferences();
+    const preferences = await getPreferences();
     expect(preferences.enabledPlatforms).toEqual([]);
 
-    const contests = getUpcomingContests();
+    const contests = await getUpcomingContests();
     expect(contests).toHaveLength(0);
   });
 
-  it("filters directly in getUpcomingStoredContests repository call", () => {
-    const cfContests = getUpcomingStoredContests(["codeforces"]);
+  it("filters directly in getUpcomingStoredContests repository call", async () => {
+    const cfContests = await getUpcomingStoredContests(["codeforces"]);
     expect(cfContests).toHaveLength(1);
     expect(cfContests[0].platform).toBe("codeforces");
 
-    const multiContests = getUpcomingStoredContests(["codechef", "leetcode"]);
+    const multiContests = await getUpcomingStoredContests([
+      "codechef",
+      "leetcode",
+    ]);
     expect(multiContests).toHaveLength(2);
-    expect(multiContests.map((c) => c.platform)).toEqual(["codechef", "leetcode"]);
+    expect(multiContests.map((c) => c.platform)).toEqual([
+      "codechef",
+      "leetcode",
+    ]);
 
-    const emptyContests = getUpcomingStoredContests([]);
+    const emptyContests = await getUpcomingStoredContests([]);
     expect(emptyContests).toHaveLength(0);
 
-    const allContests = getUpcomingStoredContests();
+    const allContests = await getUpcomingStoredContests();
     expect(allContests).toHaveLength(4);
   });
 });

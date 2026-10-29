@@ -22,7 +22,7 @@ for (const suffix of ["", "-wal", "-shm"]) {
 }
 
 const { seedDemoData } = await import("./seed-demo");
-seedDemoData();
+await seedDemoData();
 
 const port = process.env.PORT ?? "4321";
 const astroBin = path.join(root, "node_modules", "astro", "bin", "astro.mjs");

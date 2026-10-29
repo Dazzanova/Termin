@@ -45,10 +45,10 @@ describe("createReminder", () => {
 });
 
 describe("scheduleReminders", () => {
-  it("creates all future default reminders", () => {
+  it("creates all future default reminders", async () => {
     const contest = makeContest();
 
-    const reminders = scheduleReminders(
+    const reminders = await scheduleReminders(
       contest,
       new Date("2026-09-26T16:00:00.000Z")
     );
@@ -65,10 +65,10 @@ describe("scheduleReminders", () => {
     expect(mockedSaveReminder).toHaveBeenCalledTimes(3);
   });
 
-  it("does not schedule reminders that have already passed", () => {
+  it("does not schedule reminders that have already passed", async () => {
     const contest = makeContest();
 
-    const reminders = scheduleReminders(
+    const reminders = await scheduleReminders(
       contest,
       new Date("2026-09-26T17:50:00.000Z")
     );

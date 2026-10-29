@@ -9,6 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "start": "node ./dist/server/entry.mjs",
     "astro": "astro",
     "test": "vitest run",
     "sync": "tsx src/scripts/sync.ts",
@@ -17,15 +18,15 @@
     "import": "tsx src/scripts/import.ts"
   },
   "dependencies": {
+    "@astrojs/node": "^11.1.9",
+    "@libsql/client": "^0.18.0",
     "astro": "^7.3.3",
-    "better-sqlite3": "^13.0.3"
+    "cheerio": "^1.2.0"
   },
   "allowScripts": {
-    "esbuild": true,
-    "better-sqlite3@13.0.3": true
+    "esbuild": true
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0",
     "ical.js": "^2.2.1",
     "tsx": "^4.23.15",
     "vitest": "^5.0.1"

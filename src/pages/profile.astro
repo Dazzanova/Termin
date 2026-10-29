@@ -17,12 +17,14 @@ import {
   resolveAnchor,
 } from "../lib/training/profile";
 
-const account = getAccount("codeforces");
-const problems = listProblems("codeforces");
-const submissions = listSubmissions("codeforces");
-const ratingRows = listRatingHistory("codeforces");
-const counts = getReviewCounts();
-const tracked = new Set(listReviews().map((entry) => entry.problem.id));
+const account = await getAccount("codeforces");
+const problems = await listProblems("codeforces");
+const submissions = await listSubmissions("codeforces");
+const ratingRows = await listRatingHistory("codeforces");
+const counts = await getReviewCounts();
+const tracked = new Set(
+  (await listReviews()).map((entry) => entry.problem.id)
+);
 
 const rating = buildRatingSummary(ratingRows);
 const weakTags = buildWeaknessProfile(problems, submissions);
@@ -333,7 +335,7 @@ const anchorLabel =
 
         if (response.status === 404) {
           button.disabled = false;
-          showToast("Queueing needs the dev server (npm run dev)", "error");
+          showToast("Could not reach the server", "error");
           return;
         }
 

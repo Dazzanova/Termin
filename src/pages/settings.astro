@@ -4,6 +4,7 @@ import { getPreferences } from "../lib/preferences/repository";
 import { SUPPORTED_PLATFORMS } from "../lib/preferences/types";
 import { platformMonogram, platformName } from "../lib/contests/platforms";
 import type { ContestPlatform } from "../lib/contests/types";
+import { isAuthEnabled } from "../lib/auth/session";
 import {
   countProblems,
   getAccount,
@@ -11,11 +12,11 @@ import {
   getTrainingState,
 } from "../lib/training/repository";
 
-const preferences = getPreferences();
-const trainingAccount = getAccount("codeforces");
-const lastImport = getTrainingState("last_import_at");
-const problemCount = countProblems();
-const solvedCount = getSolvedProblemIds("codeforces").size;
+const preferences = await getPreferences();
+const trainingAccount = await getAccount("codeforces");
+const lastImport = await getTrainingState("last_import_at");
+const problemCount = await countProblems();
+const solvedCount = (await getSolvedProblemIds("codeforces")).size;
 
 const lastImportLabel = lastImport
   ? new Date(lastImport).toLocaleDateString("en-GB", {
@@ -26,6 +27,7 @@ const lastImportLabel = lastImport
     })
   : null;
 const enabledSet = new Set<string>(preferences.enabledPlatforms);
+const showLogout = isAuthEnabled();
 
 const PLATFORM_NOTES: Record<ContestPlatform, string> = {
   codeforces: "Rounds, Div. 1–4, educational",
@@ -46,12 +48,20 @@ const PLATFORM_NOTES: Record<ContestPlatform, string> = {
       <p class="subtitle">Choose which platforms feed the dashboard and calendar.</p>
     </div>
 
-    <span class="chip chip-mono" id="selection-count">
-      {preferences.enabledPlatforms.length}/{SUPPORTED_PLATFORMS.length} enabled
-    </span>
+    <div class="head-actions">
+      <span class="chip chip-mono" id="selection-count">
+        {preferences.enabledPlatforms.length}/{SUPPORTED_PLATFORMS.length} enabled
+      </span>
+
+      {showLogout && (
+        <form method="POST" action="/api/logout">
+          <button class="btn btn-ghost" type="submit">Log out</button>
+        </form>
+      )}
+    </div>
   </div>
 
-  <form method="POST" action="/settings">
+  <form method="POST" action="/api/preferences">
     <div class="platforms">
       {SUPPORTED_PLATFORMS.map((platform) => (
         <label class="platform-row" for={`platform-${platform}`}>
@@ -138,6 +148,16 @@ const PLATFORM_NOTES: Record<ContestPlatform, string> = {
 </script>
 
 <style>
+  .head-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .head-actions form {
+    margin: 0;
+  }
+
   .platforms {
     display: grid;
     gap: 1px;
@@ -340,7 +360,7 @@ const PLATFORM_NOTES: Record<ContestPlatform, string> = {
       });
 
       if (response.status === 404) {
-        showToast("Imports need the dev server (npm run dev)", "error");
+        showToast("Could not reach the server", "error");
         return;
       }
 

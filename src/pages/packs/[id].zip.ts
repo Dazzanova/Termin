@@ -4,18 +4,15 @@ import { listPacks } from "../../lib/packs/build";
 import { createZip } from "../../lib/packs/zip";
 import { listProblems } from "../../lib/training/repository";
 
-export const prerender = true;
-
-function allPacks() {
-  return listPacks(getUpcomingContests(), listProblems("codeforces"));
+async function allPacks() {
+  return listPacks(
+    await getUpcomingContests(),
+    await listProblems("codeforces")
+  );
 }
 
-export function getStaticPaths() {
-  return allPacks().map((pack) => ({ params: { id: pack.id } }));
-}
-
-export const GET: APIRoute = ({ params }) => {
-  const pack = allPacks().find((entry) => entry.id === params.id);
+export const GET: APIRoute = async ({ params }) => {
+  const pack = (await allPacks()).find((entry) => entry.id === params.id);
 
   if (!pack) {
     return new Response("Pack not found", { status: 404 });

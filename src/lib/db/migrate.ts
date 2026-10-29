@@ -1,66 +1,67 @@
-import type Database from "better-sqlite3";
-import { readFileSync, readdirSync } from "node:fs";
-import path from "node:path";
+import type { Client, InValue } from "@libsql/client";
 
-export const DEFAULT_MIGRATIONS_DIR = path.join(
-  process.cwd(),
-  "src/lib/db/migrations"
-);
+export type Migration = {
+  name: string;
+  sql: string;
+};
 
 type MigrationRow = {
   name: string;
 };
 
 /**
- * Applies every unapplied `.sql` file in name order, once.
+ * Applies every unapplied migration in order, once.
  *
  * Each migration and its ledger entry commit together, so a failed migration
  * leaves the database untouched and the error names the offending file.
  */
-export function runMigrations(
-  db: Database.Database,
-  migrationsDir: string = DEFAULT_MIGRATIONS_DIR
-): string[] {
-  db.exec(`
+export async function runMigrations(
+  client: Client,
+  migrations: Migration[]
+): Promise<string[]> {
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       name TEXT PRIMARY KEY,
       applied_at TEXT NOT NULL
     )
   `);
 
-  const appliedRows = db
-    .prepare("SELECT name FROM schema_migrations")
-    .all() as MigrationRow[];
-  const applied = new Set(appliedRows.map((row) => row.name));
+  const appliedRows = await client.execute("SELECT name FROM schema_migrations");
+  const applied = new Set(
+    (appliedRows.rows as unknown as MigrationRow[]).map((row) => row.name)
+  );
 
-  const files = readdirSync(migrationsDir)
-    .filter((file) => file.endsWith(".sql"))
-    .sort();
+  const sorted = [...migrations].sort((a, b) =>
+    a.name.localeCompare(b.name, "en")
+  );
 
   const newlyApplied: string[] = [];
 
-  for (const file of files) {
-    if (applied.has(file)) {
+  for (const migration of sorted) {
+    if (applied.has(migration.name)) {
       continue;
     }
 
-    const sql = readFileSync(path.join(migrationsDir, file), "utf8");
-
-    const apply = db.transaction(() => {
-      db.exec(sql);
-      db.prepare(
-        "INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)"
-      ).run(file, new Date().toISOString());
-    });
-
     try {
-      apply();
+      const transaction = await client.transaction("write");
+
+      try {
+        await transaction.executeMultiple(migration.sql);
+        await transaction.execute({
+          sql: "INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)",
+          args: [migration.name, new Date().toISOString()] as InValue[],
+        });
+        await transaction.commit();
+      } catch (error) {
+        await transaction.rollback();
+        throw error;
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Migration ${file} failed: ${message}`);
+      throw new Error(`Migration ${migration.name} failed: ${message}`);
     }
 
-    newlyApplied.push(file);
+    newlyApplied.push(migration.name);
   }
 
   return newlyApplied;

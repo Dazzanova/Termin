@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Contest } from "./types";
 import type { UserPreferences } from "../preferences/types";
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import { saveContests, saveParticipationStatus } from "./repository";
 import { DEFAULT_PREFERENCES } from "../preferences/types";
 import {
@@ -47,20 +47,27 @@ function noBonusPreferences(
   };
 }
 
-beforeEach(() => {
-  db.exec("DELETE FROM participation");
-  db.exec("DELETE FROM contests");
+beforeEach(async () => {
+  await ready();
+  await client.execute("DELETE FROM participation");
+  await client.execute("DELETE FROM contests");
 });
 
 describe("recommendations", () => {
-  it("ranks a contest marked Planned above an otherwise equal one", () => {
-    const planned = makeContest({ id: "codeforces:1", startTime: thisWeek(1, 10) });
-    const unplanned = makeContest({ id: "codeforces:2", startTime: thisWeek(1, 20) });
+  it("ranks a contest marked Planned above an otherwise equal one", async () => {
+    const planned = makeContest({
+      id: "codeforces:1",
+      startTime: thisWeek(1, 10),
+    });
+    const unplanned = makeContest({
+      id: "codeforces:2",
+      startTime: thisWeek(1, 20),
+    });
 
-    saveContests([planned, unplanned]);
-    saveParticipationStatus(planned.id, "planned");
+    await saveContests([planned, unplanned]);
+    await saveParticipationStatus(planned.id, "planned");
 
-    const recommendations = calculateRecommendations(
+    const recommendations = await calculateRecommendations(
       [planned, unplanned],
       noBonusPreferences()
     );
@@ -70,7 +77,7 @@ describe("recommendations", () => {
     expect(recommendations[1].score).toBe(0);
   });
 
-  it("flags both contests when two planned contests overlap", () => {
+  it("flags both contests when two planned contests overlap", async () => {
     const first = makeContest({
       id: "codeforces:1",
       startTime: thisWeek(1, 10),
@@ -82,11 +89,11 @@ describe("recommendations", () => {
       durationSeconds: 3600,
     });
 
-    saveContests([first, second]);
-    saveParticipationStatus(first.id, "planned");
-    saveParticipationStatus(second.id, "planned");
+    await saveContests([first, second]);
+    await saveParticipationStatus(first.id, "planned");
+    await saveParticipationStatus(second.id, "planned");
 
-    const recommendations = calculateRecommendations(
+    const recommendations = await calculateRecommendations(
       [first, second],
       noBonusPreferences()
     );
@@ -99,7 +106,7 @@ describe("recommendations", () => {
     ).toBe(true);
   });
 
-  it("flags only the unplanned contest when it clashes with a plan", () => {
+  it("flags only the unplanned contest when it clashes with a plan", async () => {
     const planned = makeContest({
       id: "codeforces:1",
       startTime: thisWeek(1, 10),
@@ -111,10 +118,10 @@ describe("recommendations", () => {
       durationSeconds: 3600,
     });
 
-    saveContests([planned, other]);
-    saveParticipationStatus(planned.id, "planned");
+    await saveContests([planned, other]);
+    await saveParticipationStatus(planned.id, "planned");
 
-    const recommendations = calculateRecommendations(
+    const recommendations = await calculateRecommendations(
       [planned, other],
       noBonusPreferences()
     );
@@ -134,7 +141,7 @@ describe("recommendations", () => {
 });
 
 describe("weekly capacity", () => {
-  it("counts only planned contests inside the current week", () => {
+  it("counts only planned contests inside the current week", async () => {
     const plannedThisWeek = makeContest({
       id: "codeforces:1",
       startTime: thisWeek(1, 12),
@@ -149,11 +156,11 @@ describe("weekly capacity", () => {
     });
 
     const contests = [plannedThisWeek, plannedNextWeek, unplannedThisWeek];
-    saveContests(contests);
-    saveParticipationStatus(plannedThisWeek.id, "planned");
-    saveParticipationStatus(plannedNextWeek.id, "planned");
+    await saveContests(contests);
+    await saveParticipationStatus(plannedThisWeek.id, "planned");
+    await saveParticipationStatus(plannedNextWeek.id, "planned");
 
-    const capacity = getWeeklyCapacity(
+    const capacity = await getWeeklyCapacity(
       contests,
       noBonusPreferences({ maxContestsPerWeek: 5 })
     );
@@ -161,8 +168,8 @@ describe("weekly capacity", () => {
     expect(capacity).toEqual({ remaining: 4, total: 5 });
   });
 
-  it("reports the full cap when nothing is planned", () => {
-    const capacity = getWeeklyCapacity(
+  it("reports the full cap when nothing is planned", async () => {
+    const capacity = await getWeeklyCapacity(
       [makeContest({ startTime: thisWeek(1, 12) })],
       noBonusPreferences({ maxContestsPerWeek: 3 })
     );

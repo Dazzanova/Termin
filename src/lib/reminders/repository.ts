@@ -1,4 +1,4 @@
-import db from "../db/database";
+import { client, ready } from "../db/database";
 import type { Reminder } from "./types";
 
 type ReminderRow = {
@@ -19,94 +19,83 @@ function rowToReminder(row: ReminderRow): Reminder {
   };
 }
 
-const getRemindersForContestStatement = db.prepare(`
-  SELECT
-    id,
-    contest_id,
-    minutes_before,
-    remind_at,
-    sent_at
-  FROM reminders
-  WHERE contest_id = ?
-  ORDER BY remind_at ASC
-`);
-
-const getDueRemindersStatement = db.prepare(`
-  SELECT
-    id,
-    contest_id,
-    minutes_before,
-    remind_at,
-    sent_at
-  FROM reminders
-  WHERE sent_at IS NULL
-    AND remind_at <= ?
-  ORDER BY remind_at ASC
-`);
-
-const saveReminderStatement = db.prepare(`
-  INSERT INTO reminders (
-    id,
-    contest_id,
-    minutes_before,
-    remind_at,
-    sent_at
-  )
-  VALUES (
-    @id,
-    @contest_id,
-    @minutes_before,
-    @remind_at,
-    @sent_at
-  )
-  ON CONFLICT(contest_id, minutes_before) DO UPDATE SET
-    remind_at = excluded.remind_at,
-    sent_at = CASE
-      WHEN reminders.remind_at != excluded.remind_at
-      THEN NULL
-      ELSE reminders.sent_at
-    END
-`);
-
-const markReminderSentStatement = db.prepare(`
-  UPDATE reminders
-  SET sent_at = ?
-  WHERE id = ?
-`);
-
-export function getRemindersForContest(
+export async function getRemindersForContest(
   contestId: string
-): Reminder[] {
-  const rows = getRemindersForContestStatement.all(
-    contestId
-  ) as ReminderRow[];
+): Promise<Reminder[]> {
+  await ready();
 
-  return rows.map(rowToReminder);
+  const result = await client.execute({
+    sql: `SELECT
+      id,
+      contest_id,
+      minutes_before,
+      remind_at,
+      sent_at
+    FROM reminders
+    WHERE contest_id = ?
+    ORDER BY remind_at ASC`,
+    args: [contestId],
+  });
+
+  return (result.rows as unknown as ReminderRow[]).map(rowToReminder);
 }
 
-export function getDueReminders(
+export async function getDueReminders(
   now: Date = new Date()
-): Reminder[] {
-  const rows = getDueRemindersStatement.all(
-    now.toISOString()
-  ) as ReminderRow[];
+): Promise<Reminder[]> {
+  await ready();
 
-  return rows.map(rowToReminder);
+  const result = await client.execute({
+    sql: `SELECT
+      id,
+      contest_id,
+      minutes_before,
+      remind_at,
+      sent_at
+    FROM reminders
+    WHERE sent_at IS NULL
+      AND remind_at <= ?
+    ORDER BY remind_at ASC`,
+    args: [now.toISOString()],
+  });
+
+  return (result.rows as unknown as ReminderRow[]).map(rowToReminder);
 }
 
-export function saveReminder(reminder: Reminder): void {
-  saveReminderStatement.run({
-    id: reminder.id,
-    contest_id: reminder.contestId,
-    minutes_before: reminder.minutesBefore,
-    remind_at: reminder.remindAt.toISOString(),
-    sent_at: reminder.sentAt?.toISOString() ?? null,
+export async function saveReminder(reminder: Reminder): Promise<void> {
+  await ready();
+
+  await client.execute({
+    sql: `INSERT INTO reminders (
+      id,
+      contest_id,
+      minutes_before,
+      remind_at,
+      sent_at
+    )
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(contest_id, minutes_before) DO UPDATE SET
+      remind_at = excluded.remind_at,
+      sent_at = CASE
+        WHEN reminders.remind_at != excluded.remind_at
+        THEN NULL
+        ELSE reminders.sent_at
+      END`,
+    args: [
+      reminder.id,
+      reminder.contestId,
+      reminder.minutesBefore,
+      reminder.remindAt.toISOString(),
+      reminder.sentAt?.toISOString() ?? null,
+    ],
   });
 }
 
-export function markReminderSent(id: string): void {
-  markReminderSentStatement.run(
-    new Date().toISOString(),
-    id
-  );
+export async function markReminderSent(id: string): Promise<void> {
+  await ready();
+
+  await client.execute({
+    sql: "UPDATE reminders SET sent_at = ? WHERE id = ?",
+    args: [new Date().toISOString(), id],
+  });
 }
