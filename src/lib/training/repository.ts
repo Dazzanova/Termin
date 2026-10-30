@@ -291,28 +291,40 @@ export async function countSubmissions(): Promise<number> {
   return Number(result.rows[0]?.count ?? 0);
 }
 
+/**
+ * The catalog is over ten thousand rows. One batch that size is a multi-megabyte
+ * request body, which a hosted libSQL endpoint can drop mid-flight; smaller
+ * batches keep each round trip modest and also limit the memory a single
+ * request holds at once.
+ */
+const PROBLEM_WRITE_CHUNK = 400;
+
 export async function saveProblems(problems: Problem[]): Promise<void> {
   await ready();
 
   const now = new Date().toISOString();
 
-  await client.batch(
-    problems.map((problem) => ({
-      sql: UPSERT_PROBLEM,
-      args: [
-        problem.id,
-        problem.platform,
-        problem.contestId,
-        problem.index,
-        problem.name,
-        problem.rating,
-        JSON.stringify(problem.tags),
-        problem.url,
-        now,
-      ],
-    })),
-    "write"
-  );
+  for (let start = 0; start < problems.length; start += PROBLEM_WRITE_CHUNK) {
+    const chunk = problems.slice(start, start + PROBLEM_WRITE_CHUNK);
+
+    await client.batch(
+      chunk.map((problem) => ({
+        sql: UPSERT_PROBLEM,
+        args: [
+          problem.id,
+          problem.platform,
+          problem.contestId,
+          problem.index,
+          problem.name,
+          problem.rating,
+          JSON.stringify(problem.tags),
+          problem.url,
+          now,
+        ],
+      })),
+      "write"
+    );
+  }
 }
 
 export async function replaceSubmissions(
