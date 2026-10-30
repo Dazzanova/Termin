@@ -235,7 +235,8 @@ Render's GitHub App is not required: `.github/workflows/deploy.yml` runs the
 tests and the build on every push to `main`, then POSTs to a Render deploy hook.
 Create the hook under **Settings → Deploy Hook**, copy the URL, and add it as
 the `RENDER_DEPLOY_HOOK` repository secret. Until that secret exists the workflow
-passes and skips the deploy step instead of failing.
+passes and skips the deploy step instead of failing. If you later install the
+GitHub App, delete this workflow first: otherwise every push deploys twice.
 
 ## Limitations
 
