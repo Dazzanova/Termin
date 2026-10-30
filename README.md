@@ -231,6 +231,12 @@ bound to all interfaces, and the standalone bundle otherwise listens on
 localhost, which makes the health check time out and the deploy fail. Keep that
 variable if you create the service by hand instead of from the blueprint.
 
+Render's GitHub App is not required: `.github/workflows/deploy.yml` runs the
+tests and the build on every push to `main`, then POSTs to a Render deploy hook.
+Create the hook under **Settings → Deploy Hook**, copy the URL, and add it as
+the `RENDER_DEPLOY_HOOK` repository secret. Until that secret exists the workflow
+passes and skips the deploy step instead of failing.
+
 ## Limitations
 
 - The app is single-user. There is one password, one set of preferences, and
