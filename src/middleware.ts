@@ -7,7 +7,7 @@ import {
 } from "./lib/auth/session";
 import { isDemoMode } from "./lib/demo";
 import { ready } from "./lib/db/database";
-import { json } from "./lib/http/api";
+import { isCrossOrigin, json } from "./lib/http/api";
 
 const PUBLIC_PATHS = new Set(["/login", "/api/login", "/robots.txt"]);
 
@@ -31,8 +31,17 @@ function safeNext(value: string | null): string {
   return value;
 }
 
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
 export const onRequest = defineMiddleware(async (context, next) => {
   await ready();
+
+  if (
+    UNSAFE_METHODS.has(context.request.method) &&
+    isCrossOrigin(context.request)
+  ) {
+    return json({ error: "Cross-origin request rejected" }, 403);
+  }
 
   const { pathname, search } = context.url;
 

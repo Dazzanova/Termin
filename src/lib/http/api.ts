@@ -19,6 +19,10 @@ export async function readJson(
  * Browsers send `Origin` on cross-site and same-site POSTs. A mismatch means
  * the request did not come from a page we served, so a write endpoint refuses
  * it. Requests without an Origin (curl, scripts) are allowed.
+ *
+ * Only the host is compared, never the scheme: the app runs behind a proxy
+ * that terminates TLS, so the request reaches us over plain HTTP while the
+ * browser still sends an `https` Origin.
  */
 export function isCrossOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
@@ -27,8 +31,13 @@ export function isCrossOrigin(request: Request): boolean {
     return false;
   }
 
+  const forwarded = request.headers.get("x-forwarded-host");
+  const host = (forwarded ?? request.headers.get("host") ?? "")
+    .split(",")[0]
+    .trim();
+
   try {
-    return new URL(origin).host !== request.headers.get("host");
+    return new URL(origin).host !== host;
   } catch {
     return true;
   }
