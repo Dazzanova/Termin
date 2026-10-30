@@ -226,6 +226,11 @@ Render's free web service has no persistent disk. That is why the database lives
 at Turso, and why there is nothing to mount. `render.yaml` starts the server with
 `node ./dist/server/entry.mjs` and health-checks `/login`.
 
+`render.yaml` also sets `HOST=0.0.0.0`. Render only routes traffic to a server
+bound to all interfaces, and the standalone bundle otherwise listens on
+localhost, which makes the health check time out and the deploy fail. Keep that
+variable if you create the service by hand instead of from the blueprint.
+
 ## Limitations
 
 - The app is single-user. There is one password, one set of preferences, and

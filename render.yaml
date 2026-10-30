@@ -10,6 +10,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.12.0
+      - key: HOST
+        value: 0.0.0.0
       - key: TURSO_DATABASE_URL
         sync: false
       - key: TURSO_AUTH_TOKEN
